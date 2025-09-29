@@ -2,9 +2,6 @@ blueprint:
   name: "Smart HVAC Control with Energy Price & Solar"
   description: "Control HVAC based on temperature, electricity price and solar energy surplus"
   domain: automation
-  author: "Madd0x"
-  source: "https://github.com/madd0x2000/home-assistant-blueprints"
-  version: "1.0.0"
   input:
     # Sensors
     temperature_sensor:
@@ -126,6 +123,10 @@ blueprint:
           max: 5.0
           step: 0.5
           unit_of_measurement: "°C"
+
+author: "Madd0x"
+source: "https://github.com/madd0x2000/home-assistant-blueprints"
+version: "1.0.0"
 
 variables:
   current_temp: "{{ states(temperature_sensor) | float }}"
