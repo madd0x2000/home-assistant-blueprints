@@ -6,37 +6,37 @@ blueprint:
   source: "https://github.com/madd0x2000/home-assistant-blueprints"
   version: "1.0.0"
   input:
-    # Sensorer
+    # Sensors
     temperature_sensor:
-      name: "Temperatursensor"
+      name: "Temperature Sensor"
       selector:
         entity:
           domain: sensor
           device_class: temperature
           
     hvac_entity:
-      name: "HVAC-enhet"
+      name: "HVAC Entity"
       selector:
         entity:
           domain: climate
           
     energy_sensor:
-      name: "Solenergiöverskott/underskott sensor"
-      description: "Sensor som visar +W vid överskott, -W vid underskott"
+      name: "Solar Energy Surplus/Deficit Sensor"
+      description: "Sensor showing +W for surplus, -W for deficit"
       selector:
         entity:
           domain: sensor
           
     price_sensor:
-      name: "Elprissensor"
-      description: "Sensor med current_price attribut för aktuellt timpris"
+      name: "Electricity Price Sensor"
+      description: "Sensor with current_price attribute for current hourly price"
       selector:
         entity:
           domain: sensor
 
-    # Temperaturinställningar
+    # Temperature Settings
     target_temp_high:
-      name: "Måltemperatur vid bra förhållanden"
+      name: "Target Temperature at Good Conditions"
       default: 21
       selector:
         number:
@@ -46,7 +46,7 @@ blueprint:
           unit_of_measurement: "°C"
           
     target_temp_low:
-      name: "Måltemperatur vid dåliga förhållanden"
+      name: "Target Temperature at Poor Conditions"
       default: 19
       selector:
         number:
@@ -55,10 +55,10 @@ blueprint:
           step: 0.5
           unit_of_measurement: "°C"
 
-    # Tröskelvärden
+    # Thresholds
     energy_threshold:
-      name: "Solenergitröskel (W)"
-      description: "Minimi överskott för att aktivera högre temperatur"
+      name: "Solar Energy Threshold (W)"
+      description: "Minimum surplus to activate higher temperature"
       default: 500
       selector:
         number:
@@ -67,8 +67,8 @@ blueprint:
           unit_of_measurement: "W"
           
     price_threshold:
-      name: "Elpriströskel (öre/kWh)"
-      description: "Max elpris för att anses vara lågt pris"
+      name: "Electricity Price Threshold (öre/kWh)"
+      description: "Maximum price to be considered low price"
       default: 50
       selector:
         number:
@@ -76,38 +76,38 @@ blueprint:
           max: 500
           unit_of_measurement: "öre/kWh"
 
-    # Fläktinställningar
+    # Fan Settings
     normal_fan_mode:
-      name: "Normalt fläktläge"
+      name: "Normal Fan Mode"
       default: "auto"
       selector:
         select:
           options:
             - label: "Auto"
               value: "auto"
-            - label: "Låg"
+            - label: "Low"
               value: "1"
-            - label: "Mellan"
+            - label: "Medium"
               value: "3"
-            - label: "Hög"
+            - label: "High"
               value: "5"
 
     boost_fan_mode:
-      name: "Boost fläktläge vid kallt"
-      description: "Fläktläge när temperaturen är 2+ grader under måltemp"
+      name: "Boost Fan Mode when Cold"
+      description: "Fan mode when temperature is 2+ degrees below target"
       default: "4"
       selector:
         select:
           options:
-            - label: "Hög"
+            - label: "High"
               value: "5"
-            - label: "Mycket hög"
+            - label: "Very High"
               value: "4"
-            - label: "Max"
+            - label: "Maximum"
               value: "3"
 
     temp_difference:
-      name: "Temperaturdifferens för aktivering"
+      name: "Temperature Difference for Activation"
       default: 1.0
       selector:
         number:
@@ -117,8 +117,8 @@ blueprint:
           unit_of_measurement: "°C"
 
     boost_temp_difference:
-      name: "Temperaturdifferens för boost-läge"
-      description: "Vid hur många grader under måltemp som boost ska aktiveras"
+      name: "Temperature Difference for Boost Mode"
+      description: "How many degrees below target temperature to activate boost"
       default: 2.0
       selector:
         number:
@@ -146,7 +146,7 @@ trigger:
 
 action:
   - variables:
-      # Beräkna optimal temperatur baserat på förhållanden
+      # Calculate optimal temperature based on conditions
       has_solar_excess: "{{ energy_balance > energy_threshold }}"
       is_low_price: "{{ electricity_price < price_threshold }}"
       
@@ -159,16 +159,16 @@ action:
           {{ target_temp_low }}
         {% endif %}
 
-      # Beräkna temperaturdifferens
+      # Calculate temperature difference
       temp_diff: "{{ target_temperature - current_temp }}"
       
-      # Bestäm om värmen behövs
+      # Determine if heating is needed
       needs_heating: "{{ current_temp < (target_temperature - temp_difference) }}"
       
-      # Bestäm om boost-läge behövs (2+ grader under måltemp)
+      # Determine if boost mode is needed (2+ degrees below target)
       needs_boost: "{{ temp_diff >= boost_temp_difference }}"
       
-      # Välj fläktläge baserat på behov
+      # Select fan mode based on needs
       selected_fan_mode: >
         {% if needs_boost %}
           {{ boost_fan_mode }}
@@ -178,7 +178,7 @@ action:
 
       current_mode: "{{ state_attr(hvac_entity, 'hvac_mode') }}"
 
-  # HVAC-styrning
+  # HVAC Control
   - choose:
       - conditions:
           - "{{ needs_heating }}"
@@ -205,7 +205,7 @@ action:
             data:
               hvac_mode: off
 
-  # Uppdatera inställningar om värmen är på
+  # Update settings if heating is on
   - conditions:
       - "{{ needs_heating }}"
       - "{{ current_mode == 'heat' }}"
@@ -222,22 +222,22 @@ action:
         data:
           fan_mode: "{{ selected_fan_mode }}"
 
-  # Förbättrad loggning med fläktinfo
+  # Enhanced logging with fan info
   - service: system_log.write
     data:
       level: info
       message: >
-        Värmestyrning: 
-        Rumstemp={{ current_temp }}°C, 
-        Måltemp={{ target_temperature }}°C,
+        HVAC Control: 
+        RoomTemp={{ current_temp }}°C, 
+        TargetTemp={{ target_temperature }}°C,
         TempDiff={{ temp_diff }}°C,
-        Energibalans={{ energy_balance }}W,
-        Elpris={{ electricity_price }}öre,
-        Överskott={{ has_solar_excess }},
-        LågtPris={{ is_low_price }},
-        BehöverVärme={{ needs_heating }},
-        BoostLäge={{ needs_boost }},
-        Fläktläge={{ selected_fan_mode }}
+        EnergyBalance={{ energy_balance }}W,
+        ElectricityPrice={{ electricity_price }}öre,
+        SolarSurplus={{ has_solar_excess }},
+        LowPrice={{ is_low_price }},
+        NeedsHeating={{ needs_heating }},
+        BoostMode={{ needs_boost }},
+        FanMode={{ selected_fan_mode }}
 
 mode: queued
 max: 5
