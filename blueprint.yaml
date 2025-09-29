@@ -1,0 +1,9 @@
+name: Home Assistant Blueprints
+description: Collection of useful Home Assistant blueprints
+content_in_root: false
+blueprints:
+  smart_hvac:
+    name: Smart HVAC Control
+    description: Control HVAC based on temperature, energy price and solar
+    path: "climate/smart_hvac_temperature_energy_price_control.yaml"
+    source: "https://github.com/madd0x2000/home-assistant-blueprints"
