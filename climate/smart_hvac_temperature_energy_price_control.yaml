@@ -1,6 +1,6 @@
 blueprint:
   name: "Smart HVAC Control with Energy Price & Solar"
-  description: "Control HVAC based on temperature, electricity price and solar energy surplus"
+  description: "Control HVAC based on temperature, electricity price and solar energy surplus. Optimizes for cost and comfort."
   domain: automation
   input:
     # Sensors
