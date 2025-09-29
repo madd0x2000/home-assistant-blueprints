@@ -28,7 +28,7 @@ Controls HVAC systems based on:
 #### Installation
 1. In Home Assistant, go to **Settings** → **Automations** → **Create Automation**
 2. Click **Use blueprint** → **URL**
-3. Paste: `https://github.com/ditt-användarnamn/home-assistant-blueprints/blob/main/climate/smart_hvac_temperature_energy_price_control.yaml`
+3. Paste: `https://github.com/madd0x2000/home-assistant-blueprints/blob/main/climate/smart_hvac_temperature_energy_price_control.yaml`
 
 #### Configuration
 - Set your temperature thresholds
