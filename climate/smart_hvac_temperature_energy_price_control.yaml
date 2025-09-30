@@ -250,7 +250,7 @@ blueprint:
           unit_of_measurement: "°C"
 
 # -----------------------------------------------------------
-# GLOBAL VARIABLER (Korrigerad syntax för att undvika !input-felet)
+# GLOBAL VARIABLER (KORRIGERAD SYNTAX FÖR ROBUSTHET)
 # -----------------------------------------------------------
 variables:
   # STEG 1a: Definiera alla input-ID:n och tider.
@@ -266,7 +266,7 @@ variables:
   input_night_mode_start_time: !input night_mode_start
   input_night_mode_end_time: !input night_mode_end
 
-  # STEG 1b: Definiera alla numeriska/string input-värden. (FÖRHINDRAR !input-FEL)
+  # STEG 1b: Definiera alla numeriska/string input-värden.
   input_base_consumption: !input base_consumption
   input_temperature_boost: !input temperature_boost
   input_solar_threshold: !input solar_threshold
