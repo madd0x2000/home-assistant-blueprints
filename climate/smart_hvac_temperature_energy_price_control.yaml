@@ -180,7 +180,7 @@ blueprint:
           
     price_threshold:
       name: "Electricity Price Threshold (öre/kWh)"
-      default: 50
+      default: 150 # << STANDARDVÄRDE ÄNDRAT HÄR
       selector:
         number:
           min: 0
@@ -363,7 +363,7 @@ variables:
     {{ (now >= start and now <= end) or (start > end and (now >= start or now <= end)) }}
 
 # -----------------------------------------------------------
-# TRIGGERS (NU STABILISERAD TILL ENDAST TIDSHÄNDELSER)
+# TRIGGERS (STABILISERAD TILL ENDAST TIDSHÄNDELSER)
 # -----------------------------------------------------------
 trigger:
   - platform: time_pattern
