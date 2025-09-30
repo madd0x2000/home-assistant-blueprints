@@ -315,8 +315,6 @@ action:
         {% endif %}
       
       zone1_final_target: "{{ zone1_base_target + temperature_boost }}"
-      
-      # ✅ KORRIGERAD - Använd enkel logik för att begränsa temperaturen
       zone1_limited_target: >
         {% if zone1_final_target > 31 %}
           31
@@ -358,8 +356,6 @@ action:
         {% endif %}
       
       zone2_final_target: "{{ zone2_base_target + temperature_boost }}"
-      
-      # ✅ KORRIGERAD - Använd enkel logik för att begränsa temperaturen
       zone2_limited_target: >
         {% if zone2_final_target > 31 %}
           31
@@ -375,7 +371,7 @@ action:
       zone2_selected_fan_mode: "{{ boost_fan_mode if zone2_needs_boost else normal_fan_mode }}"
       zone2_current_mode: "{{ state_attr(zone2_hvac_entity, 'hvac_mode') }}"
 
-  # Zone 1 Control
+  # Zone 1 Control - ✅ KORRIGERAD STRUKTUR
   - choose:
       - conditions:
           - "{{ zone1_needs_heating }}"
@@ -391,6 +387,16 @@ action:
             data:
               hvac_mode: heat
           - delay: "00:00:03"
+          - service: climate.set_temperature
+            target:
+              entity_id: !input zone1_hvac_entity
+            data:
+              temperature: "{{ zone1_limited_target }}"
+          - service: climate.set_fan_mode
+            target:
+              entity_id: !input zone1_hvac_entity
+            data:
+              fan_mode: "{{ zone1_selected_fan_mode }}"
       - conditions:
           - "{{ not zone1_needs_heating }}"
           - "{{ zone1_current_mode == 'heat' }}"
@@ -400,23 +406,22 @@ action:
               entity_id: !input zone1_hvac_entity
             data:
               hvac_mode: off
+      - conditions:
+          - "{{ zone1_needs_heating }}"
+          - "{{ zone1_current_mode == 'heat' }}"
+        sequence:
+          - service: climate.set_temperature
+            target:
+              entity_id: !input zone1_hvac_entity
+            data:
+              temperature: "{{ zone1_limited_target }}"
+          - service: climate.set_fan_mode
+            target:
+              entity_id: !input zone1_hvac_entity
+            data:
+              fan_mode: "{{ zone1_selected_fan_mode }}"
 
-  - conditions:
-      - "{{ zone1_needs_heating }}"
-      - "{{ zone1_current_mode == 'heat' }}"
-    sequence:
-      - service: climate.set_temperature
-        target:
-          entity_id: !input zone1_hvac_entity
-        data:
-          temperature: "{{ zone1_limited_target }}"
-      - service: climate.set_fan_mode
-        target:
-          entity_id: !input zone1_hvac_entity
-        data:
-          fan_mode: "{{ zone1_selected_fan_mode }}"
-
-  # Zone 2 Control
+  # Zone 2 Control - ✅ KORRIGERAD STRUKTUR
   - choose:
       - conditions:
           - "{{ zone2_needs_heating }}"
@@ -432,6 +437,16 @@ action:
             data:
               hvac_mode: heat
           - delay: "00:00:03"
+          - service: climate.set_temperature
+            target:
+              entity_id: !input zone2_hvac_entity
+            data:
+              temperature: "{{ zone2_limited_target }}"
+          - service: climate.set_fan_mode
+            target:
+              entity_id: !input zone2_hvac_entity
+            data:
+              fan_mode: "{{ zone2_selected_fan_mode }}"
       - conditions:
           - "{{ not zone2_needs_heating }}"
           - "{{ zone2_current_mode == 'heat' }}"
@@ -441,21 +456,20 @@ action:
               entity_id: !input zone2_hvac_entity
             data:
               hvac_mode: off
-
-  - conditions:
-      - "{{ zone2_needs_heating }}"
-      - "{{ zone2_current_mode == 'heat' }}"
-    sequence:
-      - service: climate.set_temperature
-        target:
-          entity_id: !input zone2_hvac_entity
-        data:
-          temperature: "{{ zone2_limited_target }}"
-      - service: climate.set_fan_mode
-        target:
-          entity_id: !input zone2_hvac_entity
-        data:
-          fan_mode: "{{ zone2_selected_fan_mode }}"
+      - conditions:
+          - "{{ zone2_needs_heating }}"
+          - "{{ zone2_current_mode == 'heat' }}"
+        sequence:
+          - service: climate.set_temperature
+            target:
+              entity_id: !input zone2_hvac_entity
+            data:
+              temperature: "{{ zone2_limited_target }}"
+          - service: climate.set_fan_mode
+            target:
+              entity_id: !input zone2_hvac_entity
+            data:
+              fan_mode: "{{ zone2_selected_fan_mode }}"
 
   # Logging
   - service: system_log.write
