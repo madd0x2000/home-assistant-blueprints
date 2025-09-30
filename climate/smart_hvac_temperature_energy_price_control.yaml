@@ -1,25 +1,19 @@
 blueprint:
-  name: "Smart HVAC Control with Energy Price & Solar"
-  description: "Control HVAC based on temperature, electricity price and solar energy surplus. Optimizes for cost and comfort. Created by Madd0x"
+  name: "Multi-Zone HVAC Control with Energy Price & Solar"
+  description: "Control multiple HVAC zones based on temperature, electricity price, solar production and heat pump consumption"
   domain: automation
   input:
-    # Sensors
-    temperature_sensor:
-      name: "Temperature Sensor"
+    # Global Sensors (delas mellan zoner)
+    solar_production_sensor:
+      name: "Solar Production Sensor"
+      description: "Sensor showing solar panel production in Watts (0 and up)"
       selector:
         entity:
           domain: sensor
-          device_class: temperature
           
-    hvac_entity:
-      name: "HVAC Entity"
-      selector:
-        entity:
-          domain: climate
-          
-    energy_sensor:
-      name: "Solar Energy Surplus/Deficit Sensor"
-      description: "Sensor showing +W for surplus, -W for deficit"
+    net_consumption_sensor:
+      name: "Net Consumption Sensor"
+      description: "Sensor showing net consumption (+W = importing, -W = exporting)"
       selector:
         entity:
           domain: sensor
@@ -31,9 +25,29 @@ blueprint:
         entity:
           domain: sensor
 
-    # Temperature Settings
-    target_temp_high:
-      name: "Target Temperature at Good Conditions"
+    # Zone 1 Configuration (t.ex. Undervåning)
+    zone1_temperature_sensor:
+      name: "Zone 1 - Temperature Sensor"
+      selector:
+        entity:
+          domain: sensor
+          device_class: temperature
+          
+    zone1_hvac_entity:
+      name: "Zone 1 - HVAC Entity"
+      selector:
+        entity:
+          domain: climate
+          
+    zone1_heatpump_consumption_sensor:
+      name: "Zone 1 - Heat Pump Consumption Sensor"
+      description: "Sensor showing zone 1 heat pump power consumption in Watts"
+      selector:
+        entity:
+          domain: sensor
+
+    zone1_target_temp_high:
+      name: "Zone 1 - Target Temperature at Good Conditions"
       default: 21
       selector:
         number:
@@ -42,8 +56,8 @@ blueprint:
           step: 0.5
           unit_of_measurement: "°C"
           
-    target_temp_low:
-      name: "Target Temperature at Poor Conditions"
+    zone1_target_temp_low:
+      name: "Zone 1 - Target Temperature at Poor Conditions"
       default: 19
       selector:
         number:
@@ -52,15 +66,126 @@ blueprint:
           step: 0.5
           unit_of_measurement: "°C"
 
-    # Thresholds
-    energy_threshold:
-      name: "Solar Energy Threshold (W)"
-      description: "Minimum surplus to activate higher temperature"
-      default: 500
+    # Zone 2 Configuration (t.ex. Övervåning)
+    zone2_temperature_sensor:
+      name: "Zone 2 - Temperature Sensor"
+      selector:
+        entity:
+          domain: sensor
+          device_class: temperature
+          
+    zone2_hvac_entity:
+      name: "Zone 2 - HVAC Entity"
+      selector:
+        entity:
+          domain: climate
+          
+    zone2_heatpump_consumption_sensor:
+      name: "Zone 2 - Heat Pump Consumption Sensor"
+      description: "Sensor showing zone 2 heat pump power consumption in Watts"
+      selector:
+        entity:
+          domain: sensor
+
+    zone2_target_temp_high:
+      name: "Zone 2 - Target Temperature at Good Conditions"
+      default: 21
+      selector:
+        number:
+          min: 10
+          max: 31
+          step: 0.5
+          unit_of_measurement: "°C"
+          
+    zone2_target_temp_low:
+      name: "Zone 2 - Target Temperature at Poor Conditions"
+      default: 19
+      selector:
+        number:
+          min: 10
+          max: 31
+          step: 0.5
+          unit_of_measurement: "°C"
+
+    # Night Mode Settings ✅ FÖRBÄTTRAD
+    night_mode_start:
+      name: "Night Mode Start Time"
+      description: "When night mode should activate (use specific night temperature)"
+      default: "22:00:00"
+      selector:
+        time: {}
+
+    night_mode_end:
+      name: "Night Mode End Time"
+      description: "When night mode should deactivate"
+      default: "06:00:00"
+      selector:
+        time: {}
+
+    zone1_night_temperature: ✅ NYTT - Specifik nattemperatur
+      name: "Zone 1 - Night Temperature"
+      description: "Target temperature for zone 1 during night mode"
+      default: 18
+      selector:
+        number:
+          min: 10
+          max: 25
+          step: 0.5
+          unit_of_measurement: "°C"
+
+    zone2_night_temperature: ✅ NYTT - Specifik nattemperatur
+      name: "Zone 2 - Night Temperature"
+      description: "Target temperature for zone 2 during night mode"
+      default: 18
+      selector:
+        number:
+          min: 10
+          max: 25
+          step: 0.5
+          unit_of_measurement: "°C"
+
+    # Global Settings (delas mellan zoner)
+    base_consumption:
+      name: "Base Household Consumption (W)"
+      description: "Typical household power consumption without heat pumps"
+      default: 200
+      selector:
+        number:
+          min: 0
+          max: 1000
+          step: 10
+          unit_of_measurement: "W"
+
+    temperature_boost:
+      name: "Temperature Boost for Heating (°C)"
+      description: "How many degrees above target temperature to set the heat pumps"
+      default: 1.0
+      selector:
+        number:
+          min: 0.5
+          max: 3.0
+          step: 0.5
+          unit_of_measurement: "°C"
+
+    # Global Thresholds (delas mellan zoner)
+    solar_threshold:
+      name: "Solar Production Threshold (W)"
+      description: "Minimum solar production to consider using solar energy"
+      default: 300
       selector:
         number:
           min: 0
           max: 5000
+          unit_of_measurement: "W"
+          
+    export_threshold:
+      name: "Energy Export Threshold (W)"
+      description: "Minimum export (negative net consumption) to activate higher temperature"
+      default: -500
+      selector:
+        number:
+          min: -5000
+          max: 0
           unit_of_measurement: "W"
           
     price_threshold:
@@ -72,6 +197,16 @@ blueprint:
           min: 0
           max: 500
           unit_of_measurement: "öre/kWh"
+
+    heatpump_threshold:
+      name: "Heat Pump Consumption Threshold (W)"
+      description: "Maximum heat pump consumption to allow higher temperature"
+      default: 800
+      selector:
+        number:
+          min: 0
+          max: 3000
+          unit_of_measurement: "W"
 
     # Fan Settings
     normal_fan_mode:
@@ -125,116 +260,220 @@ blueprint:
           unit_of_measurement: "°C"
 
 variables:
-  current_temp: "{{ states(temperature_sensor) | float }}"
-  energy_balance: "{{ states(energy_sensor) | float(0) }}"
+  # Global variables (samma för båda zoner)
+  solar_production: "{{ states(solar_production_sensor) | float(0) }}"
+  net_consumption: "{{ states(net_consumption_sensor) | float(0) }}"
   electricity_price: "{{ state_attr(price_sensor, 'current_price') | float(100) }}"
-  hvac_state: "{{ states(hvac_entity) }}"
-  hvac_mode: "{{ state_attr(hvac_entity, 'hvac_mode') }}"
+  base_consumption: "{{ base_consumption | float }}"
+  temperature_boost: "{{ temperature_boost | float }}"
+  
+  # ✅ FÖRBÄTTRAD - Kolla om nattläge är aktivt
+  is_night_mode: >
+    {% set now = now().strftime('%H:%M:%S') %}
+    {% set start = night_mode_start %}
+    {% set end = night_mode_end %}
+    {{ (now >= start and now <= end) or (start > end and (now >= start or now <= end)) }}
 
 trigger:
-  - platform: state
-    entity_id: !input temperature_sensor
+  # Global triggers
   - platform: state
     entity_id: !input price_sensor
   - platform: state
-    entity_id: !input energy_sensor
+    entity_id: !input solar_production_sensor
+  - platform: state
+    entity_id: !input net_consumption_sensor
+  # Zone 1 triggers
+  - platform: state
+    entity_id: !input zone1_temperature_sensor
+  - platform: state
+    entity_id: !input zone1_heatpump_consumption_sensor
+  # Zone 2 triggers
+  - platform: state
+    entity_id: !input zone2_temperature_sensor
+  - platform: state
+    entity_id: !input zone2_heatpump_consumption_sensor
+  # Triggers för nattläge
+  - platform: time
+    at: !input night_mode_start
+  - platform: time
+    at: !input night_mode_end
   - platform: time_pattern
     minutes: "/10"
 
 action:
   - variables:
-      # Calculate optimal temperature based on conditions
-      has_solar_excess: "{{ energy_balance > energy_threshold }}"
+      # Global conditions (samma för båda zoner)
+      has_solar_production: "{{ solar_production > solar_threshold }}"
+      available_solar: "{{ solar_production - base_consumption }}"
+      has_real_excess: "{{ available_solar > 0 }}"
+      has_export_excess: "{{ net_consumption < export_threshold }}"
       is_low_price: "{{ electricity_price < price_threshold }}"
       
-      target_temperature: >
-        {% if has_solar_excess and is_low_price %}
-          {{ target_temp_high }}
-        {% elif has_solar_excess or is_low_price %}
-          {{ (target_temp_high + target_temp_low) / 2 }}
+      # Zone 1 calculations
+      zone1_current_temp: "{{ states(zone1_temperature_sensor) | float }}"
+      zone1_heatpump_consumption: "{{ states(zone1_heatpump_consumption_sensor) | float(0) }}"
+      zone1_is_low_consumption: "{{ zone1_heatpump_consumption <= heatpump_threshold }}"
+      
+      # ✅ FÖRBÄTTRAD - Använd specifik nattemperatur istället för reduktion
+      zone1_base_target: >
+        {% if is_night_mode %}
+          {{ zone1_night_temperature }}  # Specifik nattemperatur
         {% else %}
-          {{ target_temp_low }}
+          {% if has_solar_production and zone1_is_low_consumption %}
+            {% if has_real_excess and has_export_excess and is_low_price %}
+              {{ zone1_target_temp_high }}
+            {% elif has_real_excess and (has_export_excess or is_low_price) %}
+              {{ (zone1_target_temp_high + zone1_target_temp_low) / 2 }}
+            {% elif has_solar_production and is_low_price %}
+              {{ zone1_target_temp_low + 0.5 }}
+            {% else %}
+              {{ zone1_target_temp_low }}
+            {% endif %}
+          {% elif is_low_price and zone1_is_low_consumption %}
+            {{ (zone1_target_temp_high + zone1_target_temp_low) / 2 }}
+          {% else %}
+            {{ zone1_target_temp_low }}
+          {% endif %}
         {% endif %}
+      
+      zone1_final_target: "{{ zone1_base_target + temperature_boost }}"
+      zone1_limited_target: "{{ [10, zone1_final_target, 31] | sort | second }}"
+      
+      zone1_temp_diff: "{{ zone1_base_target - zone1_current_temp }}"
+      zone1_needs_heating: "{{ zone1_current_temp < (zone1_base_target - temp_difference) }}"
+      zone1_needs_boost: "{{ zone1_temp_diff >= boost_temp_difference }}"
+      zone1_selected_fan_mode: "{{ boost_fan_mode if zone1_needs_boost else normal_fan_mode }}"
+      zone1_current_mode: "{{ state_attr(zone1_hvac_entity, 'hvac_mode') }}"
 
-      # Calculate temperature difference
-      temp_diff: "{{ target_temperature - current_temp }}"
+      # Zone 2 calculations
+      zone2_current_temp: "{{ states(zone2_temperature_sensor) | float }}"
+      zone2_heatpump_consumption: "{{ states(zone2_heatpump_consumption_sensor) | float(0) }}"
+      zone2_is_low_consumption: "{{ zone2_heatpump_consumption <= heatpump_threshold }}"
       
-      # Determine if heating is needed
-      needs_heating: "{{ current_temp < (target_temperature - temp_difference) }}"
-      
-      # Determine if boost mode is needed (2+ degrees below target)
-      needs_boost: "{{ temp_diff >= boost_temp_difference }}"
-      
-      # Select fan mode based on needs
-      selected_fan_mode: >
-        {% if needs_boost %}
-          {{ boost_fan_mode }}
+      # ✅ FÖRBÄTTRAD - Använd specifik nattemperatur istället för reduktion
+      zone2_base_target: >
+        {% if is_night_mode %}
+          {{ zone2_night_temperature }}  # Specifik nattemperatur
         {% else %}
-          {{ normal_fan_mode }}
+          {% if has_solar_production and zone2_is_low_consumption %}
+            {% if has_real_excess and has_export_excess and is_low_price %}
+              {{ zone2_target_temp_high }}
+            {% elif has_real_excess and (has_export_excess or is_low_price) %}
+              {{ (zone2_target_temp_high + zone2_target_temp_low) / 2 }}
+            {% elif has_solar_production and is_low_price %}
+              {{ zone2_target_temp_low + 0.5 }}
+            {% else %}
+              {{ zone2_target_temp_low }}
+            {% endif %}
+          {% elif is_low_price and zone2_is_low_consumption %}
+            {{ (zone2_target_temp_high + zone2_target_temp_low) / 2 }}
+          {% else %}
+            {{ zone2_target_temp_low }}
+          {% endif %}
         {% endif %}
+      
+      zone2_final_target: "{{ zone2_base_target + temperature_boost }}"
+      zone2_limited_target: "{{ [10, zone2_final_target, 31] | sort | second }}"
+      
+      zone2_temp_diff: "{{ zone2_base_target - zone2_current_temp }}"
+      zone2_needs_heating: "{{ zone2_current_temp < (zone2_base_target - temp_difference) }}"
+      zone2_needs_boost: "{{ zone2_temp_diff >= boost_temp_difference }}"
+      zone2_selected_fan_mode: "{{ boost_fan_mode if zone2_needs_boost else normal_fan_mode }}"
+      zone2_current_mode: "{{ state_attr(zone2_hvac_entity, 'hvac_mode') }}"
 
-      current_mode: "{{ state_attr(hvac_entity, 'hvac_mode') }}"
-
-  # HVAC Control
+  # Zone 1 Control
   - choose:
       - conditions:
-          - "{{ needs_heating }}"
-          - "{{ hvac_state == 'off' or current_mode != 'heat' }}"
+          - "{{ zone1_needs_heating }}"
+          - "{{ states(zone1_hvac_entity) == 'off' or zone1_current_mode != 'heat' }}"
         sequence:
           - service: climate.turn_on
             target:
-              entity_id: !input hvac_entity
+              entity_id: !input zone1_hvac_entity
           - delay: "00:00:02"
           - service: climate.set_hvac_mode
             target:
-              entity_id: !input hvac_entity
+              entity_id: !input zone1_hvac_entity
             data:
               hvac_mode: heat
           - delay: "00:00:03"
 
       - conditions:
-          - "{{ not needs_heating }}"
-          - "{{ current_mode == 'heat' }}"
+          - "{{ not zone1_needs_heating }}"
+          - "{{ zone1_current_mode == 'heat' }}"
         sequence:
           - service: climate.set_hvac_mode
             target:
-              entity_id: !input hvac_entity
+              entity_id: !input zone1_hvac_entity
             data:
               hvac_mode: off
 
-  # Update settings if heating is on
   - conditions:
-      - "{{ needs_heating }}"
-      - "{{ current_mode == 'heat' }}"
+      - "{{ zone1_needs_heating }}"
+      - "{{ zone1_current_mode == 'heat' }}"
     sequence:
       - service: climate.set_temperature
         target:
-          entity_id: !input hvac_entity
+          entity_id: !input zone1_hvac_entity
         data:
-          temperature: "{{ target_temperature }}"
-
+          temperature: "{{ zone1_limited_target }}"
       - service: climate.set_fan_mode
         target:
-          entity_id: !input hvac_entity
+          entity_id: !input zone1_hvac_entity
         data:
-          fan_mode: "{{ selected_fan_mode }}"
+          fan_mode: "{{ zone1_selected_fan_mode }}"
 
-  # Enhanced logging with fan info
+  # Zone 2 Control
+  - choose:
+      - conditions:
+          - "{{ zone2_needs_heating }}"
+          - "{{ states(zone2_hvac_entity) == 'off' or zone2_current_mode != 'heat' }}"
+        sequence:
+          - service: climate.turn_on
+            target:
+              entity_id: !input zone2_hvac_entity
+          - delay: "00:00:02"
+          - service: climate.set_hvac_mode
+            target:
+              entity_id: !input zone2_hvac_entity
+            data:
+              hvac_mode: heat
+          - delay: "00:00:03"
+
+      - conditions:
+          - "{{ not zone2_needs_heating }}"
+          - "{{ zone2_current_mode == 'heat' }}"
+        sequence:
+          - service: climate.set_hvac_mode
+            target:
+              entity_id: !input zone2_hvac_entity
+            data:
+              hvac_mode: off
+
+  - conditions:
+      - "{{ zone2_needs_heating }}"
+      - "{{ zone2_current_mode == 'heat' }}"
+    sequence:
+      - service: climate.set_temperature
+        target:
+          entity_id: !input zone2_hvac_entity
+        data:
+          temperature: "{{ zone2_limited_target }}"
+      - service: climate.set_fan_mode
+        target:
+          entity_id: !input zone2_hvac_entity
+        data:
+          fan_mode: "{{ zone2_selected_fan_mode }}"
+
+  # Enhanced logging with night mode info
   - service: system_log.write
     data:
       level: info
       message: >
-        HVAC Control: 
-        RoomTemp={{ current_temp }}°C, 
-        TargetTemp={{ target_temperature }}°C,
-        TempDiff={{ temp_diff }}°C,
-        EnergyBalance={{ energy_balance }}W,
-        ElectricityPrice={{ electricity_price }}öre,
-        SolarSurplus={{ has_solar_excess }},
-        LowPrice={{ is_low_price }},
-        NeedsHeating={{ needs_heating }},
-        BoostMode={{ needs_boost }},
-        FanMode={{ selected_fan_mode }}
+        Multi-Zone HVAC Control:
+        Global - Solar={{ solar_production }}W, Price={{ electricity_price }}öre, Export={{ has_export_excess }}, NightMode={{ is_night_mode }}
+        Zone1 - Temp={{ zone1_current_temp }}°C, BaseTarget={{ zone1_base_target }}°C, FinalTarget={{ zone1_limited_target }}°C, Heating={{ zone1_needs_heating }}
+        Zone2 - Temp={{ zone2_current_temp }}°C, BaseTarget={{ zone2_base_target }}°C, FinalTarget={{ zone2_limited_target }}°C, Heating={{ zone2_needs_heating }}
 
 mode: queued
-max: 5
+max: 10
