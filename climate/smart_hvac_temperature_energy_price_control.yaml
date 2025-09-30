@@ -250,7 +250,7 @@ blueprint:
           unit_of_measurement: "°C"
 
 # -----------------------------------------------------------
-# GLOBAL VARIABLER (KORRIGERAD SYNTAX FÖR ROBUSTHET)
+# GLOBAL VARIABLER
 # -----------------------------------------------------------
 variables:
   # STEG 1a: Definiera alla input-ID:n och tider.
@@ -363,32 +363,18 @@ variables:
     {{ (now >= start and now <= end) or (start > end and (now >= start or now <= end)) }}
 
 # -----------------------------------------------------------
-# TRIGGERS
+# TRIGGERS (NU STABILISERAD TILL ENDAST TIDSHÄNDELSER)
 # -----------------------------------------------------------
 trigger:
-  - platform: state
-    entity_id: !input price_sensor
-  - platform: state
-    entity_id: !input solar_production_sensor
-  - platform: state
-    entity_id: !input net_consumption_sensor
-  - platform: state
-    entity_id: !input zone1_temperature_sensor
-  - platform: state
-    entity_id: !input zone1_heatpump_consumption_sensor
-  - platform: state
-    entity_id: !input zone2_temperature_sensor
-  - platform: state
-    entity_id: !input zone2_heatpump_consumption_sensor
+  - platform: time_pattern
+    minutes: "/5" # Kör var 5:e minut
   - platform: time
     at: !input night_mode_start
   - platform: time
     at: !input night_mode_end
-  - platform: time_pattern
-    minutes: "/10"
 
 # -----------------------------------------------------------
-# ACTION (Använder de nya input-variablerna)
+# ACTION
 # -----------------------------------------------------------
 action:
   - variables:
@@ -483,7 +469,7 @@ action:
       zone2_selected_fan_mode: "{{ input_boost_fan_mode if zone2_needs_boost else input_normal_fan_mode }}"
       zone2_current_mode: "{{ state_attr(input_zone2_hvac_entity, 'hvac_mode') }}"
 
-  # Zone 1 Control (Använder input_zone1_hvac_entity för att läsa state)
+  # Zone 1 Control
   - choose:
       - conditions:
           - "{{ zone1_needs_heating }}"
