@@ -44,7 +44,7 @@ blueprint:
 
     zone1_target_temp_high:
       name: "Zone 1 - Target Temperature at Good Conditions"
-      default: 22  # ✅ ÄNDRAD TILL 22
+      default: 22
       selector:
         number:
           min: 10
@@ -54,7 +54,7 @@ blueprint:
           
     zone1_target_temp_low:
       name: "Zone 1 - Target Temperature at Poor Conditions"
-      default: 20  # ✅ ÄNDRAD TILL 20
+      default: 20
       selector:
         number:
           min: 10
@@ -84,7 +84,7 @@ blueprint:
 
     zone2_target_temp_high:
       name: "Zone 2 - Target Temperature at Good Conditions"
-      default: 22  # ✅ ÄNDRAD TILL 22
+      default: 22
       selector:
         number:
           min: 10
@@ -94,7 +94,7 @@ blueprint:
           
     zone2_target_temp_low:
       name: "Zone 2 - Target Temperature at Poor Conditions"
-      default: 20  # ✅ ÄNDRAD TILL 20
+      default: 20
       selector:
         number:
           min: 10
@@ -105,13 +105,13 @@ blueprint:
     # Night Mode Settings
     night_mode_start:
       name: "Night Mode Start Time"
-      default: "00:00:00"  # ✅ ÄNDRAD TILL 00:00
+      default: "00:00:00"
       selector:
         time: {}
 
     night_mode_end:
       name: "Night Mode End Time"
-      default: "05:00:00"  # ✅ ÄNDRAD TILL 05:00
+      default: "05:00:00"
       selector:
         time: {}
 
@@ -138,7 +138,7 @@ blueprint:
     # Global Settings
     base_consumption:
       name: "Base Household Consumption (W)"
-      default: 400  # ✅ ÄNDRAD TILL 400
+      default: 400
       selector:
         number:
           min: 0
@@ -193,7 +193,7 @@ blueprint:
           max: 3000
           unit_of_measurement: "W"
 
-    # Fan Settings - ✅ FÖRBÄTTRAD MED NUMMERFÖRKLARING
+    # Fan Settings
     normal_fan_mode:
       name: "Normal Fan Mode"
       default: "auto"
@@ -315,7 +315,17 @@ action:
         {% endif %}
       
       zone1_final_target: "{{ zone1_base_target + temperature_boost }}"
-      zone1_limited_target: "{{ [10, zone1_final_target, 31] | sort | second }}"
+      
+      # ✅ KORRIGERAD - Använd enkel logik för att begränsa temperaturen
+      zone1_limited_target: >
+        {% if zone1_final_target > 31 %}
+          31
+        {% elif zone1_final_target < 10 %}
+          10
+        {% else %}
+          {{ zone1_final_target }}
+        {% endif %}
+      
       zone1_temp_diff: "{{ zone1_base_target - zone1_current_temp }}"
       zone1_needs_heating: "{{ zone1_current_temp < (zone1_base_target - temp_difference) }}"
       zone1_needs_boost: "{{ zone1_temp_diff >= boost_temp_difference }}"
@@ -348,7 +358,17 @@ action:
         {% endif %}
       
       zone2_final_target: "{{ zone2_base_target + temperature_boost }}"
-      zone2_limited_target: "{{ [10, zone2_final_target, 31] | sort | second }}"
+      
+      # ✅ KORRIGERAD - Använd enkel logik för att begränsa temperaturen
+      zone2_limited_target: >
+        {% if zone2_final_target > 31 %}
+          31
+        {% elif zone2_final_target < 10 %}
+          10
+        {% else %}
+          {{ zone2_final_target }}
+        {% endif %}
+      
       zone2_temp_diff: "{{ zone2_base_target - zone2_current_temp }}"
       zone2_needs_heating: "{{ zone2_current_temp < (zone2_base_target - temp_difference) }}"
       zone2_needs_boost: "{{ zone2_temp_diff >= boost_temp_difference }}"
