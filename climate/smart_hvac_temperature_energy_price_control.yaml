@@ -250,12 +250,25 @@ blueprint:
           unit_of_measurement: "°C"
 
 # -----------------------------------------------------------
-# GLOBAL VARIABLER (Robust hämtning av sensorvärden flyttat hit)
+# GLOBAL VARIABLER (Korrigerad syntax för !input)
 # -----------------------------------------------------------
 variables:
+  # STEG 1: Definiera input-entiteternas ID:n och tider.
+  input_solar_sensor_id: !input solar_production_sensor
+  input_net_consumption_id: !input net_consumption_sensor
+  input_price_sensor_id: !input price_sensor
+  input_zone1_temp_id: !input zone1_temperature_sensor
+  input_zone1_hp_consumption_id: !input zone1_heatpump_consumption_sensor
+  input_zone2_temp_id: !input zone2_temperature_sensor
+  input_zone2_hp_consumption_id: !input zone2_heatpump_consumption_sensor
+  input_night_mode_start_time: !input night_mode_start
+  input_night_mode_end_time: !input night_mode_end
+
+  # STEG 2: Använd de nya input-variablerna (utan !input) i de robusta Jinja-blocken.
+  
   # Globala Sensorer
   solar_production: >
-    {% set sensor = !input solar_production_sensor %}
+    {% set sensor = input_solar_sensor_id %}
     {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
       {{ states(sensor) | float(0) }}
     {% else %}
@@ -263,7 +276,7 @@ variables:
     {% endif %}
   
   net_consumption: >
-    {% set sensor = !input net_consumption_sensor %}
+    {% set sensor = input_net_consumption_id %}
     {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
       {{ states(sensor) | float(0) }}
     {% else %}
@@ -271,8 +284,8 @@ variables:
     {% endif %}
   
   electricity_price: >
-    {% set sensor = !input price_sensor %}
-    {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
+    {% set sensor = input_price_sensor_id %}
+    {% if sensor and state_attr(sensor, 'current_price') is not none %}
       {{ state_attr(sensor, 'current_price') | float(100) }}
     {% else %}
       100
@@ -280,7 +293,7 @@ variables:
   
   # Zon 1 Sensorer (Robust hämtning)
   zone1_current_temp: >
-    {% set sensor = !input zone1_temperature_sensor %}
+    {% set sensor = input_zone1_temp_id %}
     {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
       {{ states(sensor) | float(15.0) }} 
     {% else %}
@@ -288,7 +301,7 @@ variables:
     {% endif %}
 
   zone1_heatpump_consumption: >
-    {% set sensor = !input zone1_heatpump_consumption_sensor %}
+    {% set sensor = input_zone1_hp_consumption_id %}
     {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
       {{ states(sensor) | float(0) }}
     {% else %}
@@ -297,7 +310,7 @@ variables:
 
   # Zon 2 Sensorer (Robust hämtning)
   zone2_current_temp: >
-    {% set sensor = !input zone2_temperature_sensor %}
+    {% set sensor = input_zone2_temp_id %}
     {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
       {{ states(sensor) | float(15.0) }} 
     {% else %}
@@ -305,7 +318,7 @@ variables:
     {% endif %}
 
   zone2_heatpump_consumption: >
-    {% set sensor = !input zone2_heatpump_consumption_sensor %}
+    {% set sensor = input_zone2_hp_consumption_id %}
     {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
       {{ states(sensor) | float(0) }}
     {% else %}
@@ -322,11 +335,11 @@ variables:
   temp_difference_value: "{{ !input temp_difference | float }}"
   boost_temp_difference_value: "{{ !input boost_temp_difference | float }}"
   
-  # Nattläge (med !input)
+  # Nattläge (Använder de nya variablerna)
   is_night_mode: >
     {% set now = now().strftime('%H:%M:%S') %}
-    {% set start = !input night_mode_start %}
-    {% set end = !input night_mode_end %}
+    {% set start = input_night_mode_start_time %}
+    {% set end = input_night_mode_end_time %}
     {{ (now >= start and now <= end) or (start > end and (now >= start or now <= end)) }}
 
 # -----------------------------------------------------------
@@ -371,7 +384,7 @@ action:
       
       zone1_base_target: >
         {% if is_night_mode %}
-          {{ !input zone1_night_temperature | float }} # <-- Använder !input
+          {{ !input zone1_night_temperature | float }}
         {% else %}
           {% set high = !input zone1_target_temp_high | float %}
           {% set low = !input zone1_target_temp_low | float %}
@@ -405,15 +418,15 @@ action:
       zone1_temp_diff: "{{ zone1_base_target - zone1_current_temp }}"
       zone1_needs_heating: "{{ zone1_current_temp < (zone1_base_target - temp_difference_value) }}"
       zone1_needs_boost: "{{ zone1_temp_diff >= boost_temp_difference_value }}"
-      zone1_selected_fan_mode: "{{ !input boost_fan_mode if zone1_needs_boost else !input normal_fan_mode }}" # <-- Använder !input
-      zone1_current_mode: "{{ state_attr(!input zone1_hvac_entity, 'hvac_mode') }}" # <-- Använder !input
+      zone1_selected_fan_mode: "{{ !input boost_fan_mode if zone1_needs_boost else !input normal_fan_mode }}"
+      zone1_current_mode: "{{ state_attr(!input zone1_hvac_entity, 'hvac_mode') }}"
 
       # Zon 2 Beräkningar
       zone2_is_low_consumption: "{{ zone2_heatpump_consumption <= heatpump_threshold_value }}"
       
       zone2_base_target: >
         {% if is_night_mode %}
-          {{ !input zone2_night_temperature | float }} # <-- Använder !input
+          {{ !input zone2_night_temperature | float }}
         {% else %}
           {% set high = !input zone2_target_temp_high | float %}
           {% set low = !input zone2_target_temp_low | float %}
@@ -447,8 +460,8 @@ action:
       zone2_temp_diff: "{{ zone2_base_target - zone2_current_temp }}"
       zone2_needs_heating: "{{ zone2_current_temp < (zone2_base_target - temp_difference_value) }}"
       zone2_needs_boost: "{{ zone2_temp_diff >= boost_temp_difference_value }}"
-      zone2_selected_fan_mode: "{{ !input boost_fan_mode if zone2_needs_boost else !input normal_fan_mode }}" # <-- Använder !input
-      zone2_current_mode: "{{ state_attr(!input zone2_hvac_entity, 'hvac_mode') }}" # <-- Använder !input
+      zone2_selected_fan_mode: "{{ !input boost_fan_mode if zone2_needs_boost else !input normal_fan_mode }}"
+      zone2_current_mode: "{{ state_attr(!input zone2_hvac_entity, 'hvac_mode') }}"
 
   # Zone 1 Control
   - choose:
