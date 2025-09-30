@@ -250,10 +250,10 @@ blueprint:
           unit_of_measurement: "°C"
 
 # -----------------------------------------------------------
-# GLOBAL VARIABLER (Korrigerad syntax för !input)
+# GLOBAL VARIABLER (Korrigerad syntax för att undvika !input-felet)
 # -----------------------------------------------------------
 variables:
-  # STEG 1: Definiera input-entiteternas ID:n och tider.
+  # STEG 1a: Definiera alla input-ID:n och tider.
   input_solar_sensor_id: !input solar_production_sensor
   input_net_consumption_id: !input net_consumption_sensor
   input_price_sensor_id: !input price_sensor
@@ -261,12 +261,32 @@ variables:
   input_zone1_hp_consumption_id: !input zone1_heatpump_consumption_sensor
   input_zone2_temp_id: !input zone2_temperature_sensor
   input_zone2_hp_consumption_id: !input zone2_heatpump_consumption_sensor
+  input_zone1_hvac_entity: !input zone1_hvac_entity
+  input_zone2_hvac_entity: !input zone2_hvac_entity
   input_night_mode_start_time: !input night_mode_start
   input_night_mode_end_time: !input night_mode_end
 
-  # STEG 2: Använd de nya input-variablerna (utan !input) i de robusta Jinja-blocken.
+  # STEG 1b: Definiera alla numeriska/string input-värden. (FÖRHINDRAR !input-FEL)
+  input_base_consumption: !input base_consumption
+  input_temperature_boost: !input temperature_boost
+  input_solar_threshold: !input solar_threshold
+  input_export_threshold: !input export_threshold
+  input_price_threshold: !input price_threshold
+  input_heatpump_threshold: !input heatpump_threshold
+  input_temp_difference: !input temp_difference
+  input_boost_temp_difference: !input boost_temp_difference
+  input_zone1_target_high: !input zone1_target_temp_high
+  input_zone1_target_low: !input zone1_target_temp_low
+  input_zone1_night_temp: !input zone1_night_temperature
+  input_zone2_target_high: !input zone2_target_temp_high
+  input_zone2_target_low: !input zone2_target_temp_low
+  input_zone2_night_temp: !input zone2_night_temperature
+  input_normal_fan_mode: !input normal_fan_mode
+  input_boost_fan_mode: !input boost_fan_mode
+
+  # STEG 2: Använd de rena variablerna i Jinja-blocken för att hämta/konvertera.
   
-  # Globala Sensorer
+  # Globala Sensorer (Robust hämtning)
   solar_production: >
     {% set sensor = input_solar_sensor_id %}
     {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
@@ -297,7 +317,7 @@ variables:
     {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
       {{ states(sensor) | float(15.0) }} 
     {% else %}
-      15.0 # Säkert defaultvärde
+      15.0
     {% endif %}
 
   zone1_heatpump_consumption: >
@@ -314,7 +334,7 @@ variables:
     {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
       {{ states(sensor) | float(15.0) }} 
     {% else %}
-      15.0 # Säkert defaultvärde
+      15.0
     {% endif %}
 
   zone2_heatpump_consumption: >
@@ -325,17 +345,17 @@ variables:
       0
     {% endif %}
 
-  # Numeriska input-värden (med !input)
-  base_consumption_value: "{{ !input base_consumption | float }}"
-  temperature_boost_value: "{{ !input temperature_boost | float }}"
-  solar_threshold_value: "{{ !input solar_threshold | float }}"
-  export_threshold_value: "{{ !input export_threshold | float }}"
-  price_threshold_value: "{{ !input price_threshold | float }}"
-  heatpump_threshold_value: "{{ !input heatpump_threshold | float }}"
-  temp_difference_value: "{{ !input temp_difference | float }}"
-  boost_temp_difference_value: "{{ !input boost_temp_difference | float }}"
+  # Numeriska input-värden (Korrigerad konvertering)
+  base_consumption_value: "{{ input_base_consumption | float }}"
+  temperature_boost_value: "{{ input_temperature_boost | float }}"
+  solar_threshold_value: "{{ input_solar_threshold | float }}"
+  export_threshold_value: "{{ input_export_threshold | float }}"
+  price_threshold_value: "{{ input_price_threshold | float }}"
+  heatpump_threshold_value: "{{ input_heatpump_threshold | float }}"
+  temp_difference_value: "{{ input_temp_difference | float }}"
+  boost_temp_difference_value: "{{ input_boost_temp_difference | float }}"
   
-  # Nattläge (Använder de nya variablerna)
+  # Nattläge
   is_night_mode: >
     {% set now = now().strftime('%H:%M:%S') %}
     {% set start = input_night_mode_start_time %}
@@ -368,7 +388,7 @@ trigger:
     minutes: "/10"
 
 # -----------------------------------------------------------
-# ACTION
+# ACTION (Använder de nya input-variablerna)
 # -----------------------------------------------------------
 action:
   - variables:
@@ -384,10 +404,10 @@ action:
       
       zone1_base_target: >
         {% if is_night_mode %}
-          {{ !input zone1_night_temperature | float }}
+          {{ input_zone1_night_temp | float }}
         {% else %}
-          {% set high = !input zone1_target_temp_high | float %}
-          {% set low = !input zone1_target_temp_low | float %}
+          {% set high = input_zone1_target_high | float %}
+          {% set low = input_zone1_target_low | float %}
           {% if has_solar_production and zone1_is_low_consumption %}
             {% if has_real_excess and has_export_excess and is_low_price %}
               {{ high }}
@@ -418,18 +438,18 @@ action:
       zone1_temp_diff: "{{ zone1_base_target - zone1_current_temp }}"
       zone1_needs_heating: "{{ zone1_current_temp < (zone1_base_target - temp_difference_value) }}"
       zone1_needs_boost: "{{ zone1_temp_diff >= boost_temp_difference_value }}"
-      zone1_selected_fan_mode: "{{ !input boost_fan_mode if zone1_needs_boost else !input normal_fan_mode }}"
-      zone1_current_mode: "{{ state_attr(!input zone1_hvac_entity, 'hvac_mode') }}"
+      zone1_selected_fan_mode: "{{ input_boost_fan_mode if zone1_needs_boost else input_normal_fan_mode }}"
+      zone1_current_mode: "{{ state_attr(input_zone1_hvac_entity, 'hvac_mode') }}"
 
       # Zon 2 Beräkningar
       zone2_is_low_consumption: "{{ zone2_heatpump_consumption <= heatpump_threshold_value }}"
       
       zone2_base_target: >
         {% if is_night_mode %}
-          {{ !input zone2_night_temperature | float }}
+          {{ input_zone2_night_temp | float }}
         {% else %}
-          {% set high = !input zone2_target_temp_high | float %}
-          {% set low = !input zone2_target_temp_low | float %}
+          {% set high = input_zone2_target_high | float %}
+          {% set low = input_zone2_target_low | float %}
           {% if has_solar_production and zone2_is_low_consumption %}
             {% if has_real_excess and has_export_excess and is_low_price %}
               {{ high }}
@@ -460,14 +480,14 @@ action:
       zone2_temp_diff: "{{ zone2_base_target - zone2_current_temp }}"
       zone2_needs_heating: "{{ zone2_current_temp < (zone2_base_target - temp_difference_value) }}"
       zone2_needs_boost: "{{ zone2_temp_diff >= boost_temp_difference_value }}"
-      zone2_selected_fan_mode: "{{ !input boost_fan_mode if zone2_needs_boost else !input normal_fan_mode }}"
-      zone2_current_mode: "{{ state_attr(!input zone2_hvac_entity, 'hvac_mode') }}"
+      zone2_selected_fan_mode: "{{ input_boost_fan_mode if zone2_needs_boost else input_normal_fan_mode }}"
+      zone2_current_mode: "{{ state_attr(input_zone2_hvac_entity, 'hvac_mode') }}"
 
-  # Zone 1 Control
+  # Zone 1 Control (Använder input_zone1_hvac_entity för att läsa state)
   - choose:
       - conditions:
           - "{{ zone1_needs_heating }}"
-          - "{{ states(!input zone1_hvac_entity) == 'off' or zone1_current_mode != 'heat' }}"
+          - "{{ states(input_zone1_hvac_entity) == 'off' or zone1_current_mode != 'heat' }}"
         sequence:
           - service: climate.turn_on
             target:
@@ -517,7 +537,7 @@ action:
   - choose:
       - conditions:
           - "{{ zone2_needs_heating }}"
-          - "{{ states(!input zone2_hvac_entity) == 'off' or zone2_current_mode != 'heat' }}"
+          - "{{ states(input_zone2_hvac_entity) == 'off' or zone2_current_mode != 'heat' }}"
         sequence:
           - service: climate.turn_on
             target:
