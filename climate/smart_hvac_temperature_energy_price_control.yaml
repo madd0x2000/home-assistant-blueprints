@@ -44,7 +44,7 @@ blueprint:
 
     zone1_target_temp_high:
       name: "Zone 1 - Target Temperature at Good Conditions"
-      default: 21
+      default: 22  # ✅ ÄNDRAD TILL 22
       selector:
         number:
           min: 10
@@ -54,7 +54,7 @@ blueprint:
           
     zone1_target_temp_low:
       name: "Zone 1 - Target Temperature at Poor Conditions"
-      default: 19
+      default: 20  # ✅ ÄNDRAD TILL 20
       selector:
         number:
           min: 10
@@ -84,7 +84,7 @@ blueprint:
 
     zone2_target_temp_high:
       name: "Zone 2 - Target Temperature at Good Conditions"
-      default: 21
+      default: 22  # ✅ ÄNDRAD TILL 22
       selector:
         number:
           min: 10
@@ -94,7 +94,7 @@ blueprint:
           
     zone2_target_temp_low:
       name: "Zone 2 - Target Temperature at Poor Conditions"
-      default: 19
+      default: 20  # ✅ ÄNDRAD TILL 20
       selector:
         number:
           min: 10
@@ -105,13 +105,13 @@ blueprint:
     # Night Mode Settings
     night_mode_start:
       name: "Night Mode Start Time"
-      default: "22:00:00"
+      default: "00:00:00"  # ✅ ÄNDRAD TILL 00:00
       selector:
         time: {}
 
     night_mode_end:
       name: "Night Mode End Time"
-      default: "06:00:00"
+      default: "05:00:00"  # ✅ ÄNDRAD TILL 05:00
       selector:
         time: {}
 
@@ -138,7 +138,7 @@ blueprint:
     # Global Settings
     base_consumption:
       name: "Base Household Consumption (W)"
-      default: 200
+      default: 400  # ✅ ÄNDRAD TILL 400
       selector:
         number:
           min: 0
@@ -193,7 +193,7 @@ blueprint:
           max: 3000
           unit_of_measurement: "W"
 
-    # Fan Settings
+    # Fan Settings - ✅ FÖRBÄTTRAD MED NUMMERFÖRKLARING
     normal_fan_mode:
       name: "Normal Fan Mode"
       default: "auto"
@@ -202,11 +202,15 @@ blueprint:
           options:
             - label: "Auto"
               value: "auto"
-            - label: "Low"
+            - label: "1 - Very Low"
               value: "1"
-            - label: "Medium"
+            - label: "2 - Low"
+              value: "2"
+            - label: "3 - Medium"
               value: "3"
-            - label: "High"
+            - label: "4 - High"
+              value: "4"
+            - label: "5 - Very High"
               value: "5"
 
     boost_fan_mode:
@@ -215,12 +219,12 @@ blueprint:
       selector:
         select:
           options:
-            - label: "High"
-              value: "5"
-            - label: "Very High"
-              value: "4"
-            - label: "Maximum"
+            - label: "3 - Medium"
               value: "3"
+            - label: "4 - High"
+              value: "4"
+            - label: "5 - Very High"
+              value: "5"
 
     temp_difference:
       name: "Temperature Difference for Activation"
