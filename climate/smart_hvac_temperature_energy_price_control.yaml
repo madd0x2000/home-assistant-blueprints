@@ -1,6 +1,6 @@
 blueprint:
   name: "Multi-Zone HVAC Control with Energy Price & Solar"
-  description: "Control multiple HVAC zones based on temperature, electricity price, solar production and heat pump consumption (v1.0.4)" # << VERSION HÄR
+  description: "Control multiple HVAC zones based on temperature, electricity price, solar production and heat pump consumption (v1.0.5)"
   domain: automation
   input:
     # Global Sensors - Utan default värden
@@ -253,16 +253,18 @@ blueprint:
 # GLOBAL VARIABLER
 # -----------------------------------------------------------
 variables:
-  # STEG 1a: Definiera alla input-ID:n och tider.
-  input_solar_sensor_id: !input solar_production_sensor
-  input_net_consumption_id: !input net_consumption_sensor
-  input_price_sensor_id: !input price_sensor
-  input_zone1_temp_id: !input zone1_temperature_sensor
-  input_zone1_hp_consumption_id: !input zone1_heatpump_consumption_sensor
-  input_zone2_temp_id: !input zone2_temperature_sensor
-  input_zone2_hp_consumption_id: !input zone2_heatpump_consumption_sensor
-  input_zone1_hvac_entity: !input zone1_hvac_entity
-  input_zone2_hvac_entity: !input zone2_hvac_entity
+  # STEG 1a: Definiera alla input-ID:n och tider (Konverterar till sträng via Jinja för stabilitet).
+  input_solar_sensor_id: "{{ iif(is_state('input_solar_sensor', 'unavailable'), 'default', input_solar_sensor_id) | string }}"
+  input_net_consumption_id: "{{ iif(is_state('input_net_consumption', 'unavailable'), 'default', input_net_consumption_id) | string }}"
+  input_price_sensor_id: "{{ iif(is_state('input_price_sensor', 'unavailable'), 'default', input_price_sensor_id) | string }}"
+  input_zone1_temp_id: "{{ iif(is_state('input_zone1_temperature_sensor', 'unavailable'), 'default', input_zone1_temperature_sensor) | string }}"
+  input_zone1_hp_consumption_id: "{{ iif(is_state('input_zone1_heatpump_consumption_sensor', 'unavailable'), 'default', input_zone1_heatpump_consumption_sensor) | string }}"
+  input_zone2_temp_id: "{{ iif(is_state('input_zone2_temperature_sensor', 'unavailable'), 'default', input_zone2_temperature_sensor) | string }}"
+  input_zone2_hp_consumption_id: "{{ iif(is_state('input_zone2_heatpump_consumption_sensor', 'unavailable'), 'default', input_zone2_heatpump_consumption_sensor) | string }}"
+  input_zone1_hvac_entity: "{{ iif(is_state('input_zone1_hvac_entity', 'unavailable'), 'default', input_zone1_hvac_entity) | string }}"
+  input_zone2_hvac_entity: "{{ iif(is_state('input_zone2_hvac_entity', 'unavailable'), 'default', input_zone2_hvac_entity) | string }}"
+  
+  # Tider använder fortfarande !input
   input_night_mode_start_time: !input night_mode_start
   input_night_mode_end_time: !input night_mode_end
 
@@ -332,11 +334,9 @@ trigger:
 # -----------------------------------------------------------
 action:
   - variables:
-      # Zon 1 Sensorer (FLYTTADE HIT FÖR ATT TILLFÖRLITLIGT HANTERA 'unknown')
+      # Sensorer (med robust hantering av 'unknown')
       zone1_current_temp: "{{ states(input_zone1_temp_id) | float(15.0) }}" 
       zone1_heatpump_consumption: "{{ states(input_zone1_hp_consumption_id) | float(0) }}"
-
-      # Zon 2 Sensorer (FLYTTADE HIT FÖR ATT TILLFÖRLITLIGT HANTERA 'unknown')
       zone2_current_temp: "{{ states(input_zone2_temp_id) | float(15.0) }}" 
       zone2_heatpump_consumption: "{{ states(input_zone2_hp_consumption_id) | float(0) }}"
 
@@ -540,7 +540,7 @@ action:
     data:
       level: info
       message: >
-        Multi-Zone HVAC Control (v1.0.4 - Variables relocated):
+        Multi-Zone HVAC Control (v1.0.5 - Stringified IDs):
         Global - Solar={{ solar_production | string }}W, Price={{ electricity_price | string }}öre, Excess={{ has_real_excess | string }}, NightMode={{ is_night_mode | string }}
         Zone1 - Temp={{ zone1_current_temp | string }}°C, Target={{ zone1_limited_target | string }}°C, Heating={{ zone1_needs_heating | string }}
         Zone2 - Temp={{ zone2_current_temp | string }}°C, Target={{ zone2_limited_target | string }}°C, Heating={{ zone2_needs_heating | string }}
