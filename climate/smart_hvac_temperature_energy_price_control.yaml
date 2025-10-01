@@ -250,7 +250,7 @@ blueprint:
           unit_of_measurement: "°C"
 
 # -----------------------------------------------------------
-# GLOBAL VARIABLER
+# GLOBAL VARIABLER (Endast inputs och stabila sensordata kvar här)
 # -----------------------------------------------------------
 variables:
   # STEG 1a: Definiera alla input-ID:n och tider.
@@ -284,7 +284,7 @@ variables:
   input_normal_fan_mode: !input normal_fan_mode
   input_boost_fan_mode: !input boost_fan_mode
 
-  # STEG 2: Hämta värden säkert med default-värden i float-konverteringen
+  # STEG 2: Hämta värden säkert med default-värden i float-konverteringen (Endast de mest stabila kvar)
   
   # Globala Sensorer (Robust hämtning)
   solar_production: "{{ states(input_solar_sensor_id) | float(0) }}"
@@ -298,14 +298,6 @@ variables:
     {% else %}
       100
     {% endif %}
-  
-  # Zon 1 Sensorer (Förenklad, robust hämtning)
-  zone1_current_temp: "{{ states(input_zone1_temp_id) | float(15.0) }}" 
-  zone1_heatpump_consumption: "{{ states(input_zone1_hp_consumption_id) | float(0) }}"
-
-  # Zon 2 Sensorer (Förenklad, robust hämtning)
-  zone2_current_temp: "{{ states(input_zone2_temp_id) | float(15.0) }}" 
-  zone2_heatpump_consumption: "{{ states(input_zone2_hp_consumption_id) | float(0) }}"
 
   # Numeriska input-värden
   base_consumption_value: "{{ input_base_consumption | float }}"
@@ -325,7 +317,7 @@ variables:
     {{ (now >= start and now <= end) or (start > end and (now >= start or now <= end)) }}
 
 # -----------------------------------------------------------
-# TRIGGERS (STABILISERAD TILL ENDAST TIDSHÄNDELSER)
+# TRIGGERS
 # -----------------------------------------------------------
 trigger:
   - platform: time_pattern
@@ -340,6 +332,14 @@ trigger:
 # -----------------------------------------------------------
 action:
   - variables:
+      # Zon 1 Sensorer (FLYTTADE HIT FÖR ATT TILLFÖRLITLIGT HANTERA 'unknown')
+      zone1_current_temp: "{{ states(input_zone1_temp_id) | float(15.0) }}" 
+      zone1_heatpump_consumption: "{{ states(input_zone1_hp_consumption_id) | float(0) }}"
+
+      # Zon 2 Sensorer (FLYTTADE HIT FÖR ATT TILLFÖRLITLIGT HANTERA 'unknown')
+      zone2_current_temp: "{{ states(input_zone2_temp_id) | float(15.0) }}" 
+      zone2_heatpump_consumption: "{{ states(input_zone2_hp_consumption_id) | float(0) }}"
+
       # Globala beräkningar
       has_solar_production: "{{ solar_production > solar_threshold_value }}"
       available_solar: "{{ solar_production - base_consumption_value }}"
@@ -535,12 +535,12 @@ action:
             data:
               fan_mode: "{{ zone2_selected_fan_mode }}"
 
-  # Logging (Inkluderar version i meddelandet istället för ogiltig nyckel)
+  # Logging (Inkluderar version i meddelandet)
   - service: system_log.write
     data:
       level: info
       message: >
-        Multi-Zone HVAC Control (v1.0.3):
+        Multi-Zone HVAC Control (v1.0.4 - Variables relocated):
         Global - Solar={{ solar_production | string }}W, Price={{ electricity_price | string }}öre, Excess={{ has_real_excess | string }}, NightMode={{ is_night_mode | string }}
         Zone1 - Temp={{ zone1_current_temp | string }}°C, Target={{ zone1_limited_target | string }}°C, Heating={{ zone1_needs_heating | string }}
         Zone2 - Temp={{ zone2_current_temp | string }}°C, Target={{ zone2_limited_target | string }}°C, Heating={{ zone2_needs_heating | string }}
