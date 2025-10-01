@@ -1,26 +1,28 @@
 blueprint:
   name: "Multi-Zone HVAC Control"
-  description: "Control multiple HVAC zones based on temperature, electricity price, solar production and heat pump consumption (v1.0.6 - hysteresis fix)"
+  description: "Control multiple HVAC zones based on temperature, electricity price, solar production and heat pump consumption (v1.1.0 - Improved Hysteresis & Debug)"
   domain: automation
   input:
-    # Global Sensors - Utan default värden
+    # Global Sensors
     solar_production_sensor:
       name: "Solar Production Sensor"
-      description: "Välj sensor för solproduktion (t.ex. sensor.solax_now)"
+      description: "Select a sensor for solar production (e.g., sensor.solar_power)."
       selector:
         entity:
           domain: sensor
-          
+          device_class: power
+
     net_consumption_sensor:
-      name: "Net Consumption Sensor" 
-      description: "Välj sensor för nettoförbrukning (t.ex. sensor.remaining_power)"
+      name: "Net Consumption Sensor"
+      description: "Select a sensor for net grid consumption (e.g., sensor.grid_power)."
       selector:
         entity:
           domain: sensor
+          device_class: power
           
     price_sensor:
       name: "Electricity Price Sensor"
-      description: "Välj sensor för elpris med current_price attribut (t.ex. sensor.nordpool_kwh_se3_sek_0_00_025)"
+      description: "Select a price sensor with a 'current_price' attribute."
       selector:
         entity:
           domain: sensor
@@ -57,6 +59,7 @@ blueprint:
           
     zone1_target_temp_low:
       name: "Zone 1 - Target Temperature at Poor Conditions"
+      description: "This is the base target temperature when energy conditions are not ideal."
       default: 20
       selector:
         number:
@@ -97,6 +100,7 @@ blueprint:
           
     zone2_target_temp_low:
       name: "Zone 2 - Target Temperature at Poor Conditions"
+      description: "This is the base target temperature when energy conditions are not ideal."
       default: 20
       selector:
         number:
@@ -159,6 +163,27 @@ blueprint:
           step: 0.5
           unit_of_measurement: "°C"
 
+    hysteresis:
+      name: "Hysteresis (°C)"
+      description: "How far below the target the temperature must drop before heating turns on again. (e.g., Target 22°C, Hysteresis 0.5°C, heating starts at 21.5°C)"
+      default: 0.5
+      selector:
+        number:
+          min: 0.1
+          max: 3.0
+          step: 0.1
+          unit_of_measurement: "°C"
+
+    boost_temp_difference:
+      name: "Temperature Difference for Boost Fan Mode"
+      default: 2.0
+      selector:
+        number:
+          min: 1.0
+          max: 5.0
+          step: 0.5
+          unit_of_measurement: "°C"
+
     # Global Thresholds
     solar_threshold:
       name: "Solar Production Threshold (W)"
@@ -203,18 +228,12 @@ blueprint:
       selector:
         select:
           options:
-            - label: "Auto"
-              value: "auto"
-            - label: "1 - Very Low"
-              value: "1"
-            - label: "2 - Low"
-              value: "2"
-            - label: "3 - Medium"
-              value: "3"
-            - label: "4 - High"
-              value: "4"
-            - label: "5 - Very High"
-              value: "5"
+            - { label: "Auto", value: "auto" }
+            - { label: "1 - Very Low", value: "1" }
+            - { label: "2 - Low", value: "2" }
+            - { label: "3 - Medium", value: "3" }
+            - { label: "4 - High", value: "4" }
+            - { label: "5 - Very High", value: "5" }
 
     boost_fan_mode:
       name: "Boost Fan Mode when Cold"
@@ -222,38 +241,15 @@ blueprint:
       selector:
         select:
           options:
-            - label: "3 - Medium"
-              value: "3"
-            - label: "4 - High"
-              value: "4"
-            - label: "5 - Very High"
-              value: "5"
-
-    temp_difference:
-      name: "Temperature Difference for Activation"
-      default: 1.0
-      selector:
-        number:
-          min: 0.5
-          max: 3.0
-          step: 0.5
-          unit_of_measurement: "°C"
-
-    boost_temp_difference:
-      name: "Temperature Difference for Boost Mode"
-      default: 2.0
-      selector:
-        number:
-          min: 1.0
-          max: 5.0
-          step: 0.5
-          unit_of_measurement: "°C"
+            - { label: "3 - Medium", value: "3" }
+            - { label: "4 - High", value: "4" }
+            - { label: "5 - Very High", value: "5" }
 
 # -----------------------------------------------------------
-# GLOBAL VARIABLER
+# GLOBAL VARIABLES
 # -----------------------------------------------------------
 variables:
-  # STEG 1a: Input ID:n
+  # Input IDs
   input_solar_sensor_id: !input solar_production_sensor
   input_net_consumption_id: !input net_consumption_sensor
   input_price_sensor_id: !input price_sensor
@@ -264,18 +260,18 @@ variables:
   input_zone1_hvac_entity: !input zone1_hvac_entity
   input_zone2_hvac_entity: !input zone2_hvac_entity
   
-  # Tider
+  # Times
   input_night_mode_start_time: !input night_mode_start
   input_night_mode_end_time: !input night_mode_end
 
-  # Numeriska/string input-värden
+  # Numeric/string input values
   input_base_consumption: !input base_consumption
   input_temperature_boost: !input temperature_boost
   input_solar_threshold: !input solar_threshold
   input_export_threshold: !input export_threshold
   input_price_threshold: !input price_threshold
   input_heatpump_threshold: !input heatpump_threshold
-  input_temp_difference: !input temp_difference
+  input_hysteresis: !input hysteresis
   input_boost_temp_difference: !input boost_temp_difference
   input_zone1_target_high: !input zone1_target_temp_high
   input_zone1_target_low: !input zone1_target_temp_low
@@ -286,7 +282,7 @@ variables:
   input_normal_fan_mode: !input normal_fan_mode
   input_boost_fan_mode: !input boost_fan_mode
 
-  # STEG 2: Hämta värden säkert
+  # Safely get sensor values
   solar_production: "{{ states(input_solar_sensor_id) | float(0) }}"
   net_consumption: "{{ states(input_net_consumption_id) | float(0) }}"
   
@@ -304,10 +300,10 @@ variables:
   export_threshold_value: "{{ input_export_threshold | float }}"
   price_threshold_value: "{{ input_price_threshold | float }}"
   heatpump_threshold_value: "{{ input_heatpump_threshold | float }}"
-  temp_difference_value: "{{ input_temp_difference | float }}"
+  hysteresis_value: "{{ input_hysteresis | float }}"
   boost_temp_difference_value: "{{ input_boost_temp_difference | float }}"
   
-  # Nattläge
+  # Night mode check
   is_night_mode: >
     {% set nowt = now().strftime('%H:%M:%S') %}
     {% set start = input_night_mode_start_time %}
@@ -330,57 +326,55 @@ trigger:
 # -----------------------------------------------------------
 action:
   - variables:
+      # Get current zone states
       zone1_current_temp: "{{ states(input_zone1_temp_id) | float(15.0) }}" 
       zone1_heatpump_consumption: "{{ states(input_zone1_hp_consumption_id) | float(0) }}"
       zone2_current_temp: "{{ states(input_zone2_temp_id) | float(15.0) }}" 
       zone2_heatpump_consumption: "{{ states(input_zone2_hp_consumption_id) | float(0) }}"
 
+      # Energy condition checks
       has_solar_production: "{{ solar_production > solar_threshold_value }}"
       available_solar: "{{ solar_production - base_consumption_value }}"
       has_real_excess: "{{ available_solar > 0 }}"
       has_export_excess: "{{ net_consumption < export_threshold_value }}"
       is_low_price: "{{ electricity_price < price_threshold_value }}"
       
+      energy_condition: >
+        {% if has_real_excess %} Good (Excess Solar)
+        {% elif has_solar_production and is_low_price %} OK (Solar & Low Price)
+        {% elif is_low_price %} OK (Low Price)
+        {% else %} Poor {% endif %}
+      
       zone1_is_low_consumption: "{{ zone1_heatpump_consumption <= heatpump_threshold_value }}"
       
+      # --- Zone 1 Target Calculation ---
       zone1_base_target: >
         {% if is_night_mode %}
           {{ input_zone1_night_temp | float }}
         {% else %}
           {% set high = input_zone1_target_high | float %}
           {% set low = input_zone1_target_low | float %}
-          {% if has_real_excess %}
-            {{ high | float }}
-          {% elif has_solar_production and is_low_price and zone1_is_low_consumption %}
-            {{ ((high + low) / 2) | float }}
-          {% elif is_low_price and zone1_is_low_consumption %}
-            {{ ((high + low) / 2) | float }}
+          {% if has_real_excess or has_export_excess %}
+            {{ high }}
+          {% elif (has_solar_production or is_low_price) and zone1_is_low_consumption %}
+            {{ (high + low) / 2 }}
           {% else %}
-            {{ low | float }}
+            {{ low }}
           {% endif %}
         {% endif %}
 
-      zone1_final_target: "{{ zone1_base_target | float + temperature_boost_value | float }}"
-      zone1_limited_target: >
-        {% set val = zone1_final_target | float %}
-        {% if val > 31 %}
-          31
-        {% elif val < 10 %}
-          10
-        {% else %}
-          {{ val }}
-        {% endif %}
+      zone1_final_target: "{{ zone1_base_target + temperature_boost_value }}"
+      zone1_limited_target: "{{ [10, [zone1_final_target, 31] | min] | max }}"
       
-      # --- HYSTERESIS FIX (MINIMAL CHANGE) ---
-      # Use zone1_limited_target for comparisons and temp_difference_value as hysteresis
-      zone1_temp_diff: "{{ (zone1_limited_target | float) - (zone1_current_temp | float) }}"
-      zone1_needs_heating: "{{ (zone1_current_temp | float) < ((zone1_limited_target | float) - temp_difference_value | float) }}"
-      zone1_should_turn_off: "{{ (zone1_current_temp | float) >= ((zone1_limited_target | float) + temp_difference_value | float) }}"
-      zone1_needs_boost: "{{ zone1_temp_diff | float >= boost_temp_difference_value | float }}"
+      # --- Zone 1 Hysteresis Logic ---
+      zone1_should_turn_off: "{{ zone1_current_temp >= zone1_limited_target }}"
+      zone1_needs_heating: "{{ zone1_current_temp < (zone1_limited_target - hysteresis_value) }}"
+      zone1_temp_diff: "{{ zone1_limited_target - zone1_current_temp }}"
+      zone1_needs_boost: "{{ zone1_temp_diff >= boost_temp_difference_value }}"
       zone1_selected_fan_mode: "{{ input_boost_fan_mode if zone1_needs_boost else input_normal_fan_mode }}"
       zone1_current_mode: "{{ state_attr(input_zone1_hvac_entity, 'hvac_mode') }}"
 
-      # Zon 2 Beräkningar
+      # --- Zone 2 Target Calculation ---
       zone2_is_low_consumption: "{{ zone2_heatpump_consumption <= heatpump_threshold_value }}"
       
       zone2_base_target: >
@@ -389,33 +383,23 @@ action:
         {% else %}
           {% set high = input_zone2_target_high | float %}
           {% set low = input_zone2_target_low | float %}
-          {% if has_real_excess %}
-            {{ high | float }}
-          {% elif has_solar_production and is_low_price and zone2_is_low_consumption %}
-            {{ ((high + low) / 2) | float }}
-          {% elif is_low_price and zone2_is_low_consumption %}
-            {{ ((high + low) / 2) | float }}
+          {% if has_real_excess or has_export_excess %}
+            {{ high }}
+          {% elif (has_solar_production or is_low_price) and zone2_is_low_consumption %}
+            {{ (high + low) / 2 }}
           {% else %}
-            {{ low | float }}
+            {{ low }}
           {% endif %}
         {% endif %}
 
-      zone2_final_target: "{{ zone2_base_target | float + temperature_boost_value | float }}"
-      zone2_limited_target: >
-        {% set val = zone2_final_target | float %}
-        {% if val > 31 %}
-          31
-        {% elif val < 10 %}
-          10
-        {% else %}
-          {{ val }}
-        {% endif %}
+      zone2_final_target: "{{ zone2_base_target + temperature_boost_value }}"
+      zone2_limited_target: "{{ [10, [zone2_final_target, 31] | min] | max }}"
       
-      # --- HYSTERESIS FIX FOR ZONE 2 (MINIMAL CHANGE) ---
-      zone2_temp_diff: "{{ (zone2_limited_target | float) - (zone2_current_temp | float) }}"
-      zone2_needs_heating: "{{ (zone2_current_temp | float) < ((zone2_limited_target | float) - temp_difference_value | float) }}"
-      zone2_should_turn_off: "{{ (zone2_current_temp | float) >= ((zone2_limited_target | float) + temp_difference_value | float) }}"
-      zone2_needs_boost: "{{ zone2_temp_diff | float >= boost_temp_difference_value | float }}"
+      # --- Zone 2 Hysteresis Logic ---
+      zone2_should_turn_off: "{{ zone2_current_temp >= zone2_limited_target }}"
+      zone2_needs_heating: "{{ zone2_current_temp < (zone2_limited_target - hysteresis_value) }}"
+      zone2_temp_diff: "{{ zone2_limited_target - zone2_current_temp }}"
+      zone2_needs_boost: "{{ zone2_temp_diff >= boost_temp_difference_value }}"
       zone2_selected_fan_mode: "{{ input_boost_fan_mode if zone2_needs_boost else input_normal_fan_mode }}"
       zone2_current_mode: "{{ state_attr(input_zone2_hvac_entity, 'hvac_mode') }}"
 
@@ -426,49 +410,37 @@ action:
           - "{{ states(input_zone1_hvac_entity) == 'off' or zone1_current_mode != 'heat' }}"
         sequence:
           - service: climate.turn_on
-            target:
-              entity_id: !input zone1_hvac_entity
+            target: { entity_id: !input zone1_hvac_entity }
           - delay: "00:00:02"
           - service: climate.set_hvac_mode
-            target:
-              entity_id: !input zone1_hvac_entity
-            data:
-              hvac_mode: heat
+            target: { entity_id: !input zone1_hvac_entity }
+            data: { hvac_mode: heat }
           - delay: "00:00:03"
           - service: climate.set_temperature
-            target:
-              entity_id: !input zone1_hvac_entity
-            data:
-              temperature: "{{ zone1_limited_target | float }}"
+            target: { entity_id: !input zone1_hvac_entity }
+            data: { temperature: "{{ zone1_limited_target | float }}" }
           - service: climate.set_fan_mode
-            target:
-              entity_id: !input zone1_hvac_entity
-            data:
-              fan_mode: "{{ zone1_selected_fan_mode }}"
+            target: { entity_id: !input zone1_hvac_entity }
+            data: { fan_mode: "{{ zone1_selected_fan_mode }}" }
+
       - conditions:
-          # OFF when temp >= target + hysteresis
           - "{{ zone1_should_turn_off }}"
           - "{{ zone1_current_mode == 'heat' }}"
         sequence:
           - service: climate.set_hvac_mode
-            target:
-              entity_id: !input zone1_hvac_entity
-            data:
-              hvac_mode: off
-      - conditions:
+            target: { entity_id: !input zone1_hvac_entity }
+            data: { hvac_mode: 'off' }
+
+      - conditions: # Update existing settings if already on
           - "{{ zone1_needs_heating }}"
           - "{{ zone1_current_mode == 'heat' }}"
         sequence:
           - service: climate.set_temperature
-            target:
-              entity_id: !input zone1_hvac_entity
-            data:
-              temperature: "{{ zone1_limited_target | float }}"
+            target: { entity_id: !input zone1_hvac_entity }
+            data: { temperature: "{{ zone1_limited_target | float }}" }
           - service: climate.set_fan_mode
-            target:
-              entity_id: !input zone1_hvac_entity
-            data:
-              fan_mode: "{{ zone1_selected_fan_mode }}"
+            target: { entity_id: !input zone1_hvac_entity }
+            data: { fan_mode: "{{ zone1_selected_fan_mode }}" }
 
   # Zone 2 Control
   - choose:
@@ -477,60 +449,56 @@ action:
           - "{{ states(input_zone2_hvac_entity) == 'off' or zone2_current_mode != 'heat' }}"
         sequence:
           - service: climate.turn_on
-            target:
-              entity_id: !input zone2_hvac_entity
+            target: { entity_id: !input zone2_hvac_entity }
           - delay: "00:00:02"
           - service: climate.set_hvac_mode
-            target:
-              entity_id: !input zone2_hvac_entity
-            data:
-              hvac_mode: heat
+            target: { entity_id: !input zone2_hvac_entity }
+            data: { hvac_mode: heat }
           - delay: "00:00:03"
           - service: climate.set_temperature
-            target:
-              entity_id: !input zone2_hvac_entity
-            data:
-              temperature: "{{ zone2_limited_target | float }}"
+            target: { entity_id: !input zone2_hvac_entity }
+            data: { temperature: "{{ zone2_limited_target | float }}" }
           - service: climate.set_fan_mode
-            target:
-              entity_id: !input zone2_hvac_entity
-            data:
-              fan_mode: "{{ zone2_selected_fan_mode }}"
+            target: { entity_id: !input zone2_hvac_entity }
+            data: { fan_mode: "{{ zone2_selected_fan_mode }}" }
+      
       - conditions:
-          # OFF when temp >= target + hysteresis
           - "{{ zone2_should_turn_off }}"
           - "{{ zone2_current_mode == 'heat' }}"
         sequence:
           - service: climate.set_hvac_mode
-            target:
-              entity_id: !input zone2_hvac_entity
-            data:
-              hvac_mode: off
-      - conditions:
+            target: { entity_id: !input zone2_hvac_entity }
+            data: { hvac_mode: 'off' }
+
+      - conditions: # Update existing settings if already on
           - "{{ zone2_needs_heating }}"
           - "{{ zone2_current_mode == 'heat' }}"
         sequence:
           - service: climate.set_temperature
-            target:
-              entity_id: !input zone2_hvac_entity
-            data:
-              temperature: "{{ zone2_limited_target | float }}"
+            target: { entity_id: !input zone2_hvac_entity }
+            data: { temperature: "{{ zone2_limited_target | float }}" }
           - service: climate.set_fan_mode
-            target:
-              entity_id: !input zone2_hvac_entity
-            data:
-              fan_mode: "{{ zone2_selected_fan_mode }}"
+            target: { entity_id: !input zone2_hvac_entity }
+            data: { fan_mode: "{{ zone2_selected_fan_mode }}" }
 
-  - service: system_log.write
+  # Debug Notification
+  - service: persistent_notification.create
     data:
-      message: >
-        HVAC DEBUG:
-        Solar={{ solar_production }}W, Net={{ net_consumption }}W,
-        Price={{ electricity_price }}öre, Night={{ is_night_mode }},
-        Z1_Target={{ zone1_limited_target }}, Z1_Temp={{ zone1_current_temp }},
-        Z1_Mode={{ zone1_current_mode }}, Z2_Target={{ zone2_limited_target }},
-        Z2_Temp={{ zone2_current_temp }}, Z2_Mode={{ zone2_current_mode }}
-      level: info
-      logger: hvac_blueprint
+      notification_id: "hvac_control_debug_{{ this.entity_id }}"
+      title: "HVAC Status @ {{ now().strftime('%H:%M') }}"
+      message: |
+        **Energy**: {{ energy_condition }} (Price: {{ electricity_price | round(2) }} öre)
+        ---
+        **Zone 1: {{ state_attr(input_zone1_hvac_entity, 'friendly_name') | default('Zone 1') }}**
+        - Status: `{{ states(input_zone1_hvac_entity) }}`
+        - Target: `{{ zone1_limited_target | float | round(1) }}°C`
+        - Current: `{{ zone1_current_temp | float | round(1) }}°C`
+        - Decision: **{% if zone1_needs_heating %} HEAT {% elif zone1_should_turn_off %} OFF {% else %} IDLE {% endif %}**
+        ---
+        **Zone 2: {{ state_attr(input_zone2_hvac_entity, 'friendly_name') | default('Zone 2') }}**
+        - Status: `{{ states(input_zone2_hvac_entity) }}`
+        - Target: `{{ zone2_limited_target | float | round(1) }}°C`
+        - Current: `{{ zone2_current_temp | float | round(1) }}°C`
+        - Decision: **{% if zone2_needs_heating %} HEAT {% elif zone2_should_turn_off %} OFF {% else %} IDLE {% endif %}**
 
 mode: restart
