@@ -2,7 +2,6 @@ blueprint:
   name: "Multi-Zone HVAC Control with Energy Price & Solar"
   description: "Control multiple HVAC zones based on temperature, electricity price, solar production and heat pump consumption"
   domain: automation
-  version: "v1.0.3" # << NY VERSIONSLABEL HÄR
   input:
     # Global Sensors - Utan default värden
     solar_production_sensor:
@@ -536,7 +535,7 @@ action:
             data:
               fan_mode: "{{ zone2_selected_fan_mode }}"
 
-  # Logging (KORRIGERAD FÖR ATT UNDVIKA TypeError)
+  # Logging (Inkluderar version i meddelandet istället för ogiltig nyckel)
   - service: system_log.write
     data:
       level: info
