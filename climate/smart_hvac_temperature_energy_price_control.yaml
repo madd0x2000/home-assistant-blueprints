@@ -1,5 +1,5 @@
 blueprint:
-  name: "Multi-Zone HVAC Control with Energy Price & Solar"
+  name: "Multi-Zone HVAC Control"
   description: "Control multiple HVAC zones based on temperature, electricity price, solar production and heat pump consumption (v1.0.5)"
   domain: automation
   input:
