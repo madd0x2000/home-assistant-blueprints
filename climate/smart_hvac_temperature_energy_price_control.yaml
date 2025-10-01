@@ -1,6 +1,6 @@
 blueprint:
   name: "Multi-Zone HVAC Control"
-  description: "Control multiple HVAC zones based on temperature, electricity price, solar production and heat pump consumption (v1.1.0 - Improved Hysteresis & Debug)"
+  description: "Control multiple HVAC zones based on temperature, electricity price, solar production and heat pump consumption (v1.1.1 - Hysteresis Fix)"
   domain: automation
   input:
     # Global Sensors
@@ -425,7 +425,7 @@ action:
 
       - conditions:
           - "{{ zone1_should_turn_off }}"
-          - "{{ zone1_current_mode == 'heat' }}"
+          - "{{ states(input_zone1_hvac_entity) != 'off' }}"
         sequence:
           - service: climate.set_hvac_mode
             target: { entity_id: !input zone1_hvac_entity }
@@ -464,7 +464,7 @@ action:
       
       - conditions:
           - "{{ zone2_should_turn_off }}"
-          - "{{ zone2_current_mode == 'heat' }}"
+          - "{{ states(input_zone2_hvac_entity) != 'off' }}"
         sequence:
           - service: climate.set_hvac_mode
             target: { entity_id: !input zone2_hvac_entity }
@@ -502,3 +502,4 @@ action:
         - Decision: **{% if zone2_needs_heating %} HEAT {% elif zone2_should_turn_off %} OFF {% else %} IDLE {% endif %}**
 
 mode: restart
+
