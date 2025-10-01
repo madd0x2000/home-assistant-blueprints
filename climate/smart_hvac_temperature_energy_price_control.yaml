@@ -3,21 +3,24 @@ blueprint:
   description: "Control multiple HVAC zones based on temperature, electricity price, solar production and heat pump consumption"
   domain: automation
   input:
-    # Global Sensors
+    # Global Sensors - Utan default värden
     solar_production_sensor:
       name: "Solar Production Sensor"
+      description: "Välj sensor för solproduktion (t.ex. sensor.solax_now)"
       selector:
         entity:
           domain: sensor
           
     net_consumption_sensor:
       name: "Net Consumption Sensor" 
+      description: "Välj sensor för nettoförbrukning (t.ex. sensor.remaining_power)"
       selector:
         entity:
           domain: sensor
           
     price_sensor:
       name: "Electricity Price Sensor"
+      description: "Välj sensor för elpris med current_price attribut (t.ex. sensor.nordpool_kwh_se3_sek_0_00_025)"
       selector:
         entity:
           domain: sensor
@@ -177,7 +180,7 @@ blueprint:
           
     price_threshold:
       name: "Electricity Price Threshold (öre/kWh)"
-      default: 50
+      default: 150 
       selector:
         number:
           min: 0
@@ -246,118 +249,171 @@ blueprint:
           step: 0.5
           unit_of_measurement: "°C"
 
-# ✅ ANVÄND VARIABLES PÅ ROTNIVÅ FÖR INPUT-VÄRDEN
+# -----------------------------------------------------------
+# GLOBAL VARIABLER
+# -----------------------------------------------------------
 variables:
-  base_consumption_val: !input base_consumption
-  temperature_boost_val: !input temperature_boost
-  solar_threshold_val: !input solar_threshold
-  export_threshold_val: !input export_threshold
-  price_threshold_val: !input price_threshold
-  heatpump_threshold_val: !input heatpump_threshold
-  temp_difference_val: !input temp_difference
-  boost_temp_difference_val: !input boost_temp_difference
-  zone1_target_temp_high_val: !input zone1_target_temp_high
-  zone1_target_temp_low_val: !input zone1_target_temp_low
-  zone2_target_temp_high_val: !input zone2_target_temp_high
-  zone2_target_temp_low_val: !input zone2_target_temp_low
-  zone1_night_temperature_val: !input zone1_night_temperature
-  zone2_night_temperature_val: !input zone2_night_temperature
-  normal_fan_mode_val: !input normal_fan_mode
-  boost_fan_mode_val: !input boost_fan_mode
+  # STEG 1a: Definiera alla input-ID:n och tider.
+  input_solar_sensor_id: !input solar_production_sensor
+  input_net_consumption_id: !input net_consumption_sensor
+  input_price_sensor_id: !input price_sensor
+  input_zone1_temp_id: !input zone1_temperature_sensor
+  input_zone1_hp_consumption_id: !input zone1_heatpump_consumption_sensor
+  input_zone2_temp_id: !input zone2_temperature_sensor
+  input_zone2_hp_consumption_id: !input zone2_heatpump_consumption_sensor
+  input_zone1_hvac_entity: !input zone1_hvac_entity
+  input_zone2_hvac_entity: !input zone2_hvac_entity
+  input_night_mode_start_time: !input night_mode_start
+  input_night_mode_end_time: !input night_mode_end
 
+  # STEG 1b: Definiera alla numeriska/string input-värden.
+  input_base_consumption: !input base_consumption
+  input_temperature_boost: !input temperature_boost
+  input_solar_threshold: !input solar_threshold
+  input_export_threshold: !input export_threshold
+  input_price_threshold: !input price_threshold
+  input_heatpump_threshold: !input heatpump_threshold
+  input_temp_difference: !input temp_difference
+  input_boost_temp_difference: !input boost_temp_difference
+  input_zone1_target_high: !input zone1_target_temp_high
+  input_zone1_target_low: !input zone1_target_temp_low
+  input_zone1_night_temp: !input zone1_night_temperature
+  input_zone2_target_high: !input zone2_target_temp_high
+  input_zone2_target_low: !input zone2_target_temp_low
+  input_zone2_night_temp: !input zone2_night_temperature
+  input_normal_fan_mode: !input normal_fan_mode
+  input_boost_fan_mode: !input boost_fan_mode
+
+  # STEG 2: Använd de rena variablerna i Jinja-blocken för att hämta/konvertera.
+  
+  # Globala Sensorer (Robust hämtning)
+  solar_production: >
+    {% set sensor = input_solar_sensor_id %}
+    {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
+      {{ states(sensor) | float(0) }}
+    {% else %}
+      0
+    {% endif %}
+  
+  net_consumption: >
+    {% set sensor = input_net_consumption_id %}
+    {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
+      {{ states(sensor) | float(0) }}
+    {% else %}
+      0
+    {% endif %}
+  
+  electricity_price: >
+    {% set sensor = input_price_sensor_id %}
+    {% if sensor and state_attr(sensor, 'current_price') is not none %}
+      {{ state_attr(sensor, 'current_price') | float(100) }}
+    {% else %}
+      100
+    {% endif %}
+  
+  # Zon 1 Sensorer (Robust hämtning)
+  zone1_current_temp: >
+    {% set sensor = input_zone1_temp_id %}
+    {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
+      {{ states(sensor) | float(15.0) }} 
+    {% else %}
+      15.0
+    {% endif %}
+
+  zone1_heatpump_consumption: >
+    {% set sensor = input_zone1_hp_consumption_id %}
+    {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
+      {{ states(sensor) | float(0) }}
+    {% else %}
+      0
+    {% endif %}
+
+  # Zon 2 Sensorer (Robust hämtning)
+  zone2_current_temp: >
+    {% set sensor = input_zone2_temp_id %}
+    {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
+      {{ states(sensor) | float(15.0) }} 
+    {% else %}
+      15.0
+    {% endif %}
+
+  zone2_heatpump_consumption: >
+    {% set sensor = input_zone2_hp_consumption_id %}
+    {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
+      {{ states(sensor) | float(0) }}
+    {% else %}
+      0
+    {% endif %}
+
+  # Numeriska input-värden (Korrigerad konvertering)
+  base_consumption_value: "{{ input_base_consumption | float }}"
+  temperature_boost_value: "{{ input_temperature_boost | float }}"
+  solar_threshold_value: "{{ input_solar_threshold | float }}"
+  export_threshold_value: "{{ input_export_threshold | float }}"
+  price_threshold_value: "{{ input_price_threshold | float }}"
+  heatpump_threshold_value: "{{ input_heatpump_threshold | float }}"
+  temp_difference_value: "{{ input_temp_difference | float }}"
+  boost_temp_difference_value: "{{ input_boost_temp_difference | float }}"
+  
+  # Nattläge
+  is_night_mode: >
+    {% set now = now().strftime('%H:%M:%S') %}
+    {% set start = input_night_mode_start_time %}
+    {% set end = input_night_mode_end_time %}
+    {{ (now >= start and now <= end) or (start > end and (now >= start or now <= end)) }}
+
+# -----------------------------------------------------------
+# TRIGGERS (STABILISERAD TILL ENDAST TIDSHÄNDELSER)
+# -----------------------------------------------------------
 trigger:
-  - platform: state
-    entity_id: !input price_sensor
-  - platform: state
-    entity_id: !input solar_production_sensor
-  - platform: state
-    entity_id: !input net_consumption_sensor
-  - platform: state
-    entity_id: !input zone1_temperature_sensor
-  - platform: state
-    entity_id: !input zone1_heatpump_consumption_sensor
-  - platform: state
-    entity_id: !input zone2_temperature_sensor
-  - platform: state
-    entity_id: !input zone2_heatpump_consumption_sensor
+  - platform: time_pattern
+    minutes: "/5" # Kör var 5:e minut
   - platform: time
     at: !input night_mode_start
   - platform: time
     at: !input night_mode_end
-  - platform: time_pattern
-    minutes: "/10"
 
+# -----------------------------------------------------------
+# ACTION
+# -----------------------------------------------------------
 action:
   - variables:
-      # ✅ ANVÄND !input DIRECT FÖR SENSOR-ENTITIES
-      solar_production: >
-        {% set sensor = '!input solar_production_sensor' %}
-        {% if states(sensor) != 'unknown' and states(sensor) != 'unavailable' %}
-          {{ states(sensor) | float(0) }}
-        {% else %}
-          0
-        {% endif %}
-      
-      net_consumption: >
-        {% set sensor = '!input net_consumption_sensor' %}
-        {% if states(sensor) != 'unknown' and states(sensor) != 'unavailable' %}
-          {{ states(sensor) | float(0) }}
-        {% else %}
-          0
-        {% endif %}
-      
-      electricity_price: >
-        {% set sensor = '!input price_sensor' %}
-        {% if states(sensor) != 'unknown' and states(sensor) != 'unavailable' %}
-          {{ state_attr(sensor, 'current_price') | float(100) }}
-        {% else %}
-          100
-        {% endif %}
-      
-      is_night_mode: >
-        {% set now = now().strftime('%H:%M:%S') %}
-        {% set start = '!input night_mode_start' %}
-        {% set end = '!input night_mode_end' %}
-        {{ (now >= start and now <= end) or (start > end and (now >= start or now <= end)) }}
-
-      has_solar_production: "{{ solar_production > solar_threshold_val }}"
-      available_solar: "{{ solar_production - base_consumption_val }}"
+      # Globala beräkningar
+      has_solar_production: "{{ solar_production > solar_threshold_value }}"
+      available_solar: "{{ solar_production - base_consumption_value }}"
       has_real_excess: "{{ available_solar > 0 }}"
-      has_export_excess: "{{ net_consumption < export_threshold_val }}"
-      is_low_price: "{{ electricity_price < price_threshold_val }}"
+      has_export_excess: "{{ net_consumption < export_threshold_value }}"
+      is_low_price: "{{ electricity_price < price_threshold_value }}"
       
-      # ✅ ANVÄND !input DIRECT FÖR ZONE SENSORER
-      zone1_current_temp: >
-        {% set sensor = '!input zone1_temperature_sensor' %}
-        {{ states(sensor) | float }}
+      # Zon 1 Beräkningar
+      zone1_is_low_consumption: "{{ zone1_heatpump_consumption <= heatpump_threshold_value }}"
       
-      zone1_heatpump_consumption: >
-        {% set sensor = '!input zone1_heatpump_consumption_sensor' %}
-        {{ states(sensor) | float(0) }}
-      
-      zone1_is_low_consumption: "{{ zone1_heatpump_consumption <= heatpump_threshold_val }}"
-      
-      # ✅ SMART LOGIK - SOLÖVERSKOTT SLÅR ELPRIS
       zone1_base_target: >
         {% if is_night_mode %}
-          {{ zone1_night_temperature_val }}
+          {{ input_zone1_night_temp | float }}
         {% else %}
+          {% set high = input_zone1_target_high | float %}
+          {% set low = input_zone1_target_low | float %}
+
+          # 1. PRIORITY: REAL SOLAR EXCESS (Free Energy) - Price irrelevant
           {% if has_real_excess %}
-            {{ zone1_target_temp_high_val }}  # ✅ ALLTID hög temp när solöverskott finns
-          {% elif has_solar_production and zone1_is_low_consumption %}
-            {% if is_low_price %}
-              {{ (zone1_target_temp_high_val + zone1_target_temp_low_val) / 2 }}
-            {% else %}
-              {{ zone1_target_temp_low_val }}
-            {% endif %}
+            {{ high }} 
+
+          # 2. MEDIUM PRIORITY: General Solar Production + Low Price + Low HP Consumption
+          {% elif has_solar_production and is_low_price and zone1_is_low_consumption %}
+            {{ (high + low) / 2 }}
+
+          # 3. MEDIUM PRIORITY: Low Price Only + Low HP Consumption (Good for pre-heating)
           {% elif is_low_price and zone1_is_low_consumption %}
-            {{ (zone1_target_temp_high_val + zone1_target_temp_low_val) / 2 }}
+            {{ (high + low) / 2 }}
+            
+          # 4. DEFAULT
           {% else %}
-            {{ zone1_target_temp_low_val }}
+            {{ low }}
           {% endif %}
         {% endif %}
       
-      zone1_final_target: "{{ zone1_base_target + temperature_boost_val }}"
+      zone1_final_target: "{{ zone1_base_target + temperature_boost_value }}"
       zone1_limited_target: >
         {% if zone1_final_target > 31 %}
           31
@@ -368,45 +424,40 @@ action:
         {% endif %}
       
       zone1_temp_diff: "{{ zone1_base_target - zone1_current_temp }}"
-      zone1_needs_heating: "{{ zone1_current_temp < (zone1_base_target - temp_difference_val) }}"
-      zone1_needs_boost: "{{ zone1_temp_diff >= boost_temp_difference_val }}"
-      zone1_selected_fan_mode: "{{ boost_fan_mode_val if zone1_needs_boost else normal_fan_mode_val }}"
-      
-      zone1_current_mode: >
-        {% set entity = '!input zone1_hvac_entity' %}
-        {{ state_attr(entity, 'hvac_mode') }}
+      zone1_needs_heating: "{{ zone1_current_temp < (zone1_base_target - temp_difference_value) }}"
+      zone1_needs_boost: "{{ zone1_temp_diff >= boost_temp_difference_value }}"
+      zone1_selected_fan_mode: "{{ input_boost_fan_mode if zone1_needs_boost else input_normal_fan_mode }}"
+      zone1_current_mode: "{{ state_attr(input_zone1_hvac_entity, 'hvac_mode') }}"
 
-      # ✅ SAMMA FÖR ZONE 2
-      zone2_current_temp: >
-        {% set sensor = '!input zone2_temperature_sensor' %}
-        {{ states(sensor) | float }}
-      
-      zone2_heatpump_consumption: >
-        {% set sensor = '!input zone2_heatpump_consumption_sensor' %}
-        {{ states(sensor) | float(0) }}
-      
-      zone2_is_low_consumption: "{{ zone2_heatpump_consumption <= heatpump_threshold_val }}"
+      # Zon 2 Beräkningar
+      zone2_is_low_consumption: "{{ zone2_heatpump_consumption <= heatpump_threshold_value }}"
       
       zone2_base_target: >
         {% if is_night_mode %}
-          {{ zone2_night_temperature_val }}
+          {{ input_zone2_night_temp | float }}
         {% else %}
+          {% set high = input_zone2_target_high | float %}
+          {% set low = input_zone2_target_low | float %}
+
+          # 1. PRIORITY: REAL SOLAR EXCESS (Free Energy) - Price irrelevant
           {% if has_real_excess %}
-            {{ zone2_target_temp_high_val }}  # ✅ ALLTID hög temp när solöverskott finns
-          {% elif has_solar_production and zone2_is_low_consumption %}
-            {% if is_low_price %}
-              {{ (zone2_target_temp_high_val + zone2_target_temp_low_val) / 2 }}
-            {% else %}
-              {{ zone2_target_temp_low_val }}
-            {% endif %}
+            {{ high }} 
+
+          # 2. MEDIUM PRIORITY: General Solar Production + Low Price + Low HP Consumption
+          {% elif has_solar_production and is_low_price and zone2_is_low_consumption %}
+            {{ (high + low) / 2 }}
+
+          # 3. MEDIUM PRIORITY: Low Price Only + Low HP Consumption (Good for pre-heating)
           {% elif is_low_price and zone2_is_low_consumption %}
-            {{ (zone2_target_temp_high_val + zone2_target_temp_low_val) / 2 }}
+            {{ (high + low) / 2 }}
+            
+          # 4. DEFAULT
           {% else %}
-            {{ zone2_target_temp_low_val }}
+            {{ low }}
           {% endif %}
         {% endif %}
       
-      zone2_final_target: "{{ zone2_base_target + temperature_boost_val }}"
+      zone2_final_target: "{{ zone2_base_target + temperature_boost_value }}"
       zone2_limited_target: >
         {% if zone2_final_target > 31 %}
           31
@@ -417,19 +468,16 @@ action:
         {% endif %}
       
       zone2_temp_diff: "{{ zone2_base_target - zone2_current_temp }}"
-      zone2_needs_heating: "{{ zone2_current_temp < (zone2_base_target - temp_difference_val) }}"
-      zone2_needs_boost: "{{ zone2_temp_diff >= boost_temp_difference_val }}"
-      zone2_selected_fan_mode: "{{ boost_fan_mode_val if zone2_needs_boost else normal_fan_mode_val }}"
-      
-      zone2_current_mode: >
-        {% set entity = '!input zone2_hvac_entity' %}
-        {{ state_attr(entity, 'hvac_mode') }}
+      zone2_needs_heating: "{{ zone2_current_temp < (zone2_base_target - temp_difference_value) }}"
+      zone2_needs_boost: "{{ zone2_temp_diff >= boost_temp_difference_value }}"
+      zone2_selected_fan_mode: "{{ input_boost_fan_mode if zone2_needs_boost else input_normal_fan_mode }}"
+      zone2_current_mode: "{{ state_attr(input_zone2_hvac_entity, 'hvac_mode') }}"
 
   # Zone 1 Control
   - choose:
       - conditions:
           - "{{ zone1_needs_heating }}"
-          - "{{ states('!input zone1_hvac_entity') == 'off' or zone1_current_mode != 'heat' }}"
+          - "{{ states(input_zone1_hvac_entity) == 'off' or zone1_current_mode != 'heat' }}"
         sequence:
           - service: climate.turn_on
             target:
@@ -479,7 +527,7 @@ action:
   - choose:
       - conditions:
           - "{{ zone2_needs_heating }}"
-          - "{{ states('!input zone2_hvac_entity') == 'off' or zone2_current_mode != 'heat' }}"
+          - "{{ states(input_zone2_hvac_entity) == 'off' or zone2_current_mode != 'heat' }}"
         sequence:
           - service: climate.turn_on
             target:
@@ -531,7 +579,7 @@ action:
       level: info
       message: >
         Multi-Zone HVAC Control:
-        Global - Solar={{ solar_production }}W, AvailableSolar={{ available_solar }}W, Price={{ electricity_price }}öre, RealExcess={{ has_real_excess }}, Export={{ has_export_excess }}, NightMode={{ is_night_mode }}
+        Global - Solar={{ solar_production }}W, Price={{ electricity_price }}öre, Export={{ has_export_excess }}, NightMode={{ is_night_mode }}
         Zone1 - Temp={{ zone1_current_temp }}°C, Target={{ zone1_limited_target }}°C, Heating={{ zone1_needs_heating }}
         Zone2 - Temp={{ zone2_current_temp }}°C, Target={{ zone2_limited_target }}°C, Heating={{ zone2_needs_heating }}
 
