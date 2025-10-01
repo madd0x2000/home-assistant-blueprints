@@ -2,6 +2,7 @@ blueprint:
   name: "Multi-Zone HVAC Control with Energy Price & Solar"
   description: "Control multiple HVAC zones based on temperature, electricity price, solar production and heat pump consumption"
   domain: automation
+  version: "v1.0.3" # << NY VERSIONSLABEL HÄR
   input:
     # Global Sensors - Utan default värden
     solar_production_sensor:
@@ -540,7 +541,7 @@ action:
     data:
       level: info
       message: >
-        Multi-Zone HVAC Control:
+        Multi-Zone HVAC Control (v1.0.3):
         Global - Solar={{ solar_production | string }}W, Price={{ electricity_price | string }}öre, Excess={{ has_real_excess | string }}, NightMode={{ is_night_mode | string }}
         Zone1 - Temp={{ zone1_current_temp | string }}°C, Target={{ zone1_limited_target | string }}°C, Heating={{ zone1_needs_heating | string }}
         Zone2 - Temp={{ zone2_current_temp | string }}°C, Target={{ zone2_limited_target | string }}°C, Heating={{ zone2_needs_heating | string }}
