@@ -284,68 +284,30 @@ variables:
   input_normal_fan_mode: !input normal_fan_mode
   input_boost_fan_mode: !input boost_fan_mode
 
-  # STEG 2: Använd de rena variablerna i Jinja-blocken för att hämta/konvertera.
+  # STEG 2: Hämta värden säkert med default-värden i float-konverteringen
   
   # Globala Sensorer (Robust hämtning)
-  solar_production: >
-    {% set sensor = input_solar_sensor_id %}
-    {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
-      {{ states(sensor) | float(0) }}
-    {% else %}
-      0
-    {% endif %}
+  solar_production: "{{ states(input_solar_sensor_id) | float(0) }}"
+  net_consumption: "{{ states(input_net_consumption_id) | float(0) }}"
   
-  net_consumption: >
-    {% set sensor = input_net_consumption_id %}
-    {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
-      {{ states(sensor) | float(0) }}
-    {% else %}
-      0
-    {% endif %}
-  
+  # Pris hämtas via attribut, vilket ofta är säkrare än state
   electricity_price: >
     {% set sensor = input_price_sensor_id %}
-    {% if sensor and state_attr(sensor, 'current_price') is not none %}
+    {% if state_attr(sensor, 'current_price') is not none %}
       {{ state_attr(sensor, 'current_price') | float(100) }}
     {% else %}
       100
     {% endif %}
   
-  # Zon 1 Sensorer (Robust hämtning)
-  zone1_current_temp: >
-    {% set sensor = input_zone1_temp_id %}
-    {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
-      {{ states(sensor) | float(15.0) }} 
-    {% else %}
-      15.0
-    {% endif %}
+  # Zon 1 Sensorer (Förenklad, robust hämtning)
+  zone1_current_temp: "{{ states(input_zone1_temp_id) | float(15.0) }}" 
+  zone1_heatpump_consumption: "{{ states(input_zone1_hp_consumption_id) | float(0) }}"
 
-  zone1_heatpump_consumption: >
-    {% set sensor = input_zone1_hp_consumption_id %}
-    {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
-      {{ states(sensor) | float(0) }}
-    {% else %}
-      0
-    {% endif %}
+  # Zon 2 Sensorer (Förenklad, robust hämtning)
+  zone2_current_temp: "{{ states(input_zone2_temp_id) | float(15.0) }}" 
+  zone2_heatpump_consumption: "{{ states(input_zone2_hp_consumption_id) | float(0) }}"
 
-  # Zon 2 Sensorer (Robust hämtning)
-  zone2_current_temp: >
-    {% set sensor = input_zone2_temp_id %}
-    {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
-      {{ states(sensor) | float(15.0) }} 
-    {% else %}
-      15.0
-    {% endif %}
-
-  zone2_heatpump_consumption: >
-    {% set sensor = input_zone2_hp_consumption_id %}
-    {% if sensor and states(sensor) is not none and states(sensor) not in ('unknown', 'unavailable') %}
-      {{ states(sensor) | float(0) }}
-    {% else %}
-      0
-    {% endif %}
-
-  # Numeriska input-värden (Korrigerad konvertering)
+  # Numeriska input-värden
   base_consumption_value: "{{ input_base_consumption | float }}"
   temperature_boost_value: "{{ input_temperature_boost | float }}"
   solar_threshold_value: "{{ input_solar_threshold | float }}"
