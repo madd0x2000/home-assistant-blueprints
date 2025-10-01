@@ -395,15 +395,15 @@ action:
           {% set high = input_zone1_target_high | float %}
           {% set low = input_zone1_target_low | float %}
 
-          # 1. PRIORITY: REAL SOLAR EXCESS (Free Energy) - Price irrelevant
+          # 1. HÖGSTA PRIORITET: RIKTIGT SOLEL-ÖVERSKOTT (Priset ignoreras)
           {% if has_real_excess %}
             {{ high }} 
 
-          # 2. MEDIUM PRIORITY: General Solar Production + Low Price + Low HP Consumption
+          # 2. MELLANPRIORITET: Solproduktion + Lågt Pris + Låg HP-Förbrukning
           {% elif has_solar_production and is_low_price and zone1_is_low_consumption %}
             {{ (high + low) / 2 }}
 
-          # 3. MEDIUM PRIORITY: Low Price Only + Low HP Consumption (Good for pre-heating)
+          # 3. MELLANPRIORITET: Lågt Pris Endast + Låg HP-Förbrukning (Bra för förvärmning)
           {% elif is_low_price and zone1_is_low_consumption %}
             {{ (high + low) / 2 }}
             
@@ -439,15 +439,15 @@ action:
           {% set high = input_zone2_target_high | float %}
           {% set low = input_zone2_target_low | float %}
 
-          # 1. PRIORITY: REAL SOLAR EXCESS (Free Energy) - Price irrelevant
+          # 1. HÖGSTA PRIORITET: RIKTIGT SOLEL-ÖVERSKOTT (Priset ignoreras)
           {% if has_real_excess %}
             {{ high }} 
 
-          # 2. MEDIUM PRIORITY: General Solar Production + Low Price + Low HP Consumption
+          # 2. MELLANPRIORITET: Solproduktion + Lågt Pris + Låg HP-Förbrukning
           {% elif has_solar_production and is_low_price and zone2_is_low_consumption %}
             {{ (high + low) / 2 }}
 
-          # 3. MEDIUM PRIORITY: Low Price Only + Low HP Consumption (Good for pre-heating)
+          # 3. MELLANPRIORITET: Lågt Pris Endast + Låg HP-Förbrukning (Bra för förvärmning)
           {% elif is_low_price and zone2_is_low_consumption %}
             {{ (high + low) / 2 }}
             
@@ -573,15 +573,15 @@ action:
             data:
               fan_mode: "{{ zone2_selected_fan_mode }}"
 
-  # Logging
+  # Logging (KORRIGERAD FÖR ATT UNDVIKA TypeError)
   - service: system_log.write
     data:
       level: info
       message: >
         Multi-Zone HVAC Control:
-        Global - Solar={{ solar_production }}W, Price={{ electricity_price }}öre, Export={{ has_export_excess }}, NightMode={{ is_night_mode }}
-        Zone1 - Temp={{ zone1_current_temp }}°C, Target={{ zone1_limited_target }}°C, Heating={{ zone1_needs_heating }}
-        Zone2 - Temp={{ zone2_current_temp }}°C, Target={{ zone2_limited_target }}°C, Heating={{ zone2_needs_heating }}
+        Global - Solar={{ solar_production | string }}W, Price={{ electricity_price | string }}öre, Excess={{ has_real_excess | string }}, NightMode={{ is_night_mode | string }}
+        Zone1 - Temp={{ zone1_current_temp | string }}°C, Target={{ zone1_limited_target | string }}°C, Heating={{ zone1_needs_heating | string }}
+        Zone2 - Temp={{ zone2_current_temp | string }}°C, Target={{ zone2_limited_target | string }}°C, Heating={{ zone2_needs_heating | string }}
 
 mode: queued
 max: 10
