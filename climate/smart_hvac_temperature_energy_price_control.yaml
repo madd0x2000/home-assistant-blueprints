@@ -1,6 +1,6 @@
 blueprint:
   name: "Multi-Zone HVAC Control"
-  description: "Control multiple HVAC zones based on temperature, electricity price, solar production and heat pump consumption (v1.1.1 - Hysteresis Fix)"
+  description: "Control multiple HVAC zones based on temperature, electricity price, solar production and heat pump consumption (v1.2.0 - True Surplus Logic)"
   domain: automation
   input:
     # Global Sensors
@@ -187,6 +187,7 @@ blueprint:
     # Global Thresholds
     solar_threshold:
       name: "Solar Production Threshold (W)"
+      description: "The amount of SURPLUS solar power required to trigger 'Good Conditions'."
       default: 300
       selector:
         number:
@@ -332,16 +333,17 @@ action:
       zone2_current_temp: "{{ states(input_zone2_temp_id) | float(15.0) }}" 
       zone2_heatpump_consumption: "{{ states(input_zone2_hp_consumption_id) | float(0) }}"
 
-      # Energy condition checks
-      has_solar_production: "{{ solar_production > solar_threshold_value }}"
+      # --- NEW: True Surplus Logic ---
       available_solar: "{{ solar_production - base_consumption_value }}"
-      has_real_excess: "{{ available_solar > 0 }}"
+      has_meaningful_surplus: "{{ available_solar > solar_threshold_value }}"
+      
+      # Energy condition checks
       has_export_excess: "{{ net_consumption < export_threshold_value }}"
       is_low_price: "{{ electricity_price < price_threshold_value }}"
       
       energy_condition: >
-        {% if has_real_excess %} Good (Excess Solar)
-        {% elif has_solar_production and is_low_price %} OK (Solar & Low Price)
+        {% if has_export_excess %} Best (Exporting)
+        {% elif has_meaningful_surplus %} Good (Solar Surplus)
         {% elif is_low_price %} OK (Low Price)
         {% else %} Poor {% endif %}
       
@@ -354,9 +356,9 @@ action:
         {% else %}
           {% set high = input_zone1_target_high | float %}
           {% set low = input_zone1_target_low | float %}
-          {% if has_real_excess or has_export_excess %}
+          {% if has_export_excess or has_meaningful_surplus %}
             {{ high }}
-          {% elif (has_solar_production or is_low_price) and zone1_is_low_consumption %}
+          {% elif is_low_price and zone1_is_low_consumption %}
             {{ (high + low) / 2 }}
           {% else %}
             {{ low }}
@@ -383,9 +385,9 @@ action:
         {% else %}
           {% set high = input_zone2_target_high | float %}
           {% set low = input_zone2_target_low | float %}
-          {% if has_real_excess or has_export_excess %}
+          {% if has_export_excess or has_meaningful_surplus %}
             {{ high }}
-          {% elif (has_solar_production or is_low_price) and zone2_is_low_consumption %}
+          {% elif is_low_price and zone2_is_low_consumption %}
             {{ (high + low) / 2 }}
           {% else %}
             {{ low }}
@@ -487,7 +489,7 @@ action:
       notification_id: "hvac_control_debug_{{ this.entity_id }}"
       title: "HVAC Status @ {{ now().strftime('%H:%M') }}"
       message: |
-        **Energy**: {{ energy_condition }} (Price: {{ electricity_price | round(2) }} öre)
+        **Energy**: {{ energy_condition }} (Surplus: {{ available_solar | round(0) }}W, Price: {{ electricity_price | round(2) }} öre)
         ---
         **Zone 1: {{ state_attr(input_zone1_hvac_entity, 'friendly_name') | default('Zone 1') }}**
         - Status: `{{ states(input_zone1_hvac_entity) }}`
