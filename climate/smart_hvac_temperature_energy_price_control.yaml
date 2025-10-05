@@ -1,6 +1,6 @@
 blueprint:
   name: "Multi-Zone HVAC Control"
-  description: "Control multiple HVAC zones based on temperature, electricity price, solar production and heat pump consumption (v1.2.0 - True Surplus Logic)"
+  description: "Control multiple HVAC zones based on temperature, electricity price, solar production and heat pump consumption (v1.2.1 - Corrected Boost Logic)"
   domain: automation
   input:
     # Global Sensors
@@ -49,6 +49,7 @@ blueprint:
 
     zone1_target_temp_high:
       name: "Zone 1 - Target Temperature at Good Conditions"
+      description: "The absolute maximum temperature the automation will set."
       default: 22
       selector:
         number:
@@ -90,6 +91,7 @@ blueprint:
 
     zone2_target_temp_high:
       name: "Zone 2 - Target Temperature at Good Conditions"
+      description: "The absolute maximum temperature the automation will set."
       default: 22
       selector:
         number:
@@ -154,11 +156,12 @@ blueprint:
           unit_of_measurement: "W"
 
     temperature_boost:
-      name: "Temperature Boost for Heating (°C)"
+      name: "Heating Boost (°C) - Added to lower targets"
+      description: "Boosts the temperature when conditions are not ideal, but will not exceed the 'Good Conditions' target."
       default: 1.0
       selector:
         number:
-          min: 0.5
+          min: 0
           max: 3.0
           step: 0.5
           unit_of_measurement: "°C"
@@ -333,7 +336,7 @@ action:
       zone2_current_temp: "{{ states(input_zone2_temp_id) | float(15.0) }}" 
       zone2_heatpump_consumption: "{{ states(input_zone2_hp_consumption_id) | float(0) }}"
 
-      # --- NEW: True Surplus Logic ---
+      # True Surplus Logic
       available_solar: "{{ solar_production - base_consumption_value }}"
       has_meaningful_surplus: "{{ available_solar > solar_threshold_value }}"
       
@@ -365,7 +368,9 @@ action:
           {% endif %}
         {% endif %}
 
-      zone1_final_target: "{{ zone1_base_target + temperature_boost_value }}"
+      # --- NEW: Corrected Final Target Logic ---
+      zone1_boosted_target: "{{ zone1_base_target + temperature_boost_value }}"
+      zone1_final_target: "{{ [zone1_boosted_target, input_zone1_target_high] | min }}"
       zone1_limited_target: "{{ [10, [zone1_final_target, 31] | min] | max }}"
       
       # --- Zone 1 Hysteresis Logic ---
@@ -394,7 +399,9 @@ action:
           {% endif %}
         {% endif %}
 
-      zone2_final_target: "{{ zone2_base_target + temperature_boost_value }}"
+      # --- NEW: Corrected Final Target Logic ---
+      zone2_boosted_target: "{{ zone2_base_target + temperature_boost_value }}"
+      zone2_final_target: "{{ [zone2_boosted_target, input_zone2_target_high] | min }}"
       zone2_limited_target: "{{ [10, [zone2_final_target, 31] | min] | max }}"
       
       # --- Zone 2 Hysteresis Logic ---
