@@ -1,5 +1,5 @@
 blueprint:
-  name: "Multi-Zone HVAC Control (with Custom Zone 3)"
+  name: "Multi-Zone HVAC Control"
   description: "Controls Zone 1/2 with complex logic and a Zone 3 with simple solar surplus logic."
   domain: automation
   input:
