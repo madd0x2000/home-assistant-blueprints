@@ -1,6 +1,6 @@
 blueprint:
   name: "Multi-Zone HVAC Control"
-  description: "Controls Zone 1/2 with complex logic and a Zone 3 with simple solar surplus logic."
+  description: "Control multiple HVAC zones based on temperature, electricity price, solar production and heat pump consumption (v1.2.1 - Corrected Boost Logic + Custom Zone 3 v2)"
   domain: automation
   input:
     # Global Sensors
@@ -564,7 +564,7 @@ action:
             target: { entity_id: !input zone2_hvac_entity }
             data: { fan_mode: "{{ zone2_selected_fan_mode }}" }
             
-  # --- Zone 3 Custom Control START ---
+  # --- Zone 3 Custom Control START (Logic Fixed) ---
   - choose:
       # --- CONDITION 1: TURN ON ---
       - conditions:
@@ -594,7 +594,7 @@ action:
             target: { entity_id: !input zone3_hvac_entity }
             data: { hvac_mode: 'off' }
             
-      # --- CONDITION 3: UPDATE TARGET (if already on) ---
+      # --- CONDITION 3: UPDATE (if already on) ---
       - conditions:
           - "{{ zone3_needs_heating }}"
           - "{{ zone3_current_mode == 'heat' }}"
@@ -606,6 +606,17 @@ action:
           - service: climate.set_fan_mode
             target: { entity_id: !input zone3_hvac_entity }
             data: { fan_mode: "{{ zone3_selected_fan_mode }}" }
+            
+      # --- CONDITION 4: FIX SETPOINT (if in dead-band and setpoint is wrong) [THE FIX] ---
+      - conditions:
+          - "{{ zone3_needs_heating == False }}"
+          - "{{ zone3_should_turn_off == False }}"
+          - "{{ zone3_current_mode == 'heat' }}"
+          - "{{ state_attr(input_zone3_hvac_entity, 'temperature') | float != zone3_limited_target }}"
+        sequence:
+          - service: climate.set_temperature
+            target: { entity_id: !input zone3_hvac_entity }
+            data: { temperature: "{{ zone3_limited_target | float }}" }
   # --- Zone 3 Custom Control END ---
 
   # Debug Notification
