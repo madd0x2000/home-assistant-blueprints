@@ -684,7 +684,7 @@ action:
   # --- Zone 3 Custom Control END ---
 
   # Debug Notification
-  - service: persistent_notification..create
+  - service: persistent_notification.create
     data:
       notification_id: "hvac_control_debug_{{ this.entity_id }}"
       title: "HVAC Status @ {{ now().strftime('%H:%M') }}"
@@ -714,4 +714,5 @@ action:
         - Decision: **{% if zone3_needs_heating %} HEAT {% elif zone3_should_turn_off %} OFF {% else %} IDLE {% endif %}**
 
 mode: restart
+
 
